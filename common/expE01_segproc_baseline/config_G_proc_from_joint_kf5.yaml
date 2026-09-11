@@ -1,0 +1,75 @@
+experiment:
+  name: expE05a_proc_from_joint_kf5
+  seed: 42
+
+data:
+  track: PROCEDURE
+  fold: 0
+  # ★expE02c は qa_v004（= fold v003）の fold≠0 で学習している。
+  #   warm start 元と同じ qa_version でないと val が汚染する（§11 の再演になる）。
+  qa_version: v004
+  n_frames: 16
+  frame_size: 448
+  # ★★本番クリップのキーフレーム間隔（5s）に縛る。公式テンプレの docstring:
+  #   "H.264 MP4 at exactly 5 fps ... A keyframe every 5 s keeps seeking cheap."
+  #   非キーフレームを読むコストは latency 予算に入る（"decoding counts towards
+  #   your latency budget"）。PROCEDURE は平均 4691s のクリップを 1問30秒で処理するので、
+  #   **推論でキーフレーム上しか見られない → 学習も同じ格子に載せる**。
+  #   対照は grid: 1.0 の expE05b（config_H）。
+  grid: 5.0
+  extract: true
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16   # ★dl1(Turing) では train_lora_seg が自動で float16 に落とす
+  max_seq_len: 4096
+
+lora:
+  # ★warm start 元 = expE02c（FRAME 6,000 + SEGMENT 3,000 の joint、SEGMENT SCORE 0.5383）。
+  #   SEGMENT で「warm start が scratch に勝つ」ことが arm B で確認済み（0.5349 vs 0.5197）ので
+  #   PROCEDURE でも同じ形を取る。r/alpha/target_modules は adapter_config.json 側が使われる。
+  init_from_adapter: workspace/expE01_segproc_baseline/results/expE02c_joint_frame_segment/fold0/adapter
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  # RTX 8000 は 48GB。GPU1/2 で expE04a/b が各 24GB 使っているので、空き GPU を1枚占有する前提。
+  reserve_mb: 22000
+  min_reserve_mb: 16000
+  epochs: 1
+  lr: 3.0e-5          # 継続学習なので下げる（config_B と同じ）
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  train_limit: null   # PROCEDURE 全量 8,000
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

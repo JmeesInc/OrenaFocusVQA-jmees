@@ -1,0 +1,77 @@
+experiment:
+  name: expE13_frame_from_fs_768_v003
+  seed: 42
+
+data:
+  track: FRAME
+  fold: 0
+  # ★★fold を v003（= qa_v004）に揃えるのがこの実験の目的。
+  #   expD 系（expD11 等）は fold **v001** で学習しており、v003 の val とは
+  #   **26本中21本が入れ替わっている**（両方にとって未学習な動画は 130本中5本、
+  #   FRAME 20,000問中 402問しか無い＝検出力ゼロ）。よって expD11 の 0.6464 と
+  #   expE03f の 0.5681 は**原理的に比較できない**。fold を揃えて決着させる。
+  qa_version: v004
+  n_frames: 1
+  # ★expD11 と同じ 768px。FRAME train の 768 フレームはキャッシュに無いので
+  #   起動時に自動抽出される（1問1枚 ≒ 16,000枚、16 worker で 15〜20分）。
+  frame_size: 768
+  extract: true
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16   # dl1(Turing) では train_lora_seg が自動で float16 に落とす
+  # 1フレーム@768px は実測 約600〜900 token（容量掃引: 8f@768 = 3,392 tok）。
+  max_seq_len: 4096
+
+lora:
+  # ★★expE06g（F+S joint 全量、FRAME 0.6073 / SEGMENT 0.6496）から warm start する。
+  #   狙い: SEGMENT で arm B（warm start）が scratch に勝った（0.5349 vs 0.5197）のと
+  #   同じ形を FRAME でも試す。対照は expE10（scratch, FRAME 0.6289 @768px）。
+  #   ⚠️**expE10 との差分は init_from_adapter と lr の2つ**（下記）。純粋な
+  #     「scratch vs warm start」ではないので、勝っても要因は分離されていない。
+  init_from_adapter: workspace/expE01_segproc_baseline/results/expE06g_joint_frame_segment_FULL/fold0/adapter
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 22000
+  min_reserve_mb: 16000
+  epochs: 2           # ★expD11 と同じ 2ep（joint 系の 1ep とは違う。expD11 の再現が目的）
+  # ★継続学習なので下げる（config_B と同じ 3e-5。ゼロからは 1e-4）。
+  #   1e-4 のままだと既にある良い解を壊しうる、というのがこのリポジトリの運用則。
+  lr: 3.0e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  train_limit: null   # FRAME 全量 15,992
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

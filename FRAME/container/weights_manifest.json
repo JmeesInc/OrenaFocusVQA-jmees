@@ -1,0 +1,37 @@
+{
+  "repo": "x/y",
+  "members": {
+    "b1_q02b_r1": {
+      "path": "frame/b1_q02b_r1",
+      "md5": "7a5b2ba9944e4c61accc87b01a6d67dd"
+    },
+    "b2_q00b_r4": {
+      "path": "frame/b2_q00b_r4",
+      "md5": "c069a8f12a022eeb5a524219571a2a69"
+    },
+    "b3_q03b_r1sa": {
+      "path": "frame/b3_q03b_r1sa",
+      "md5": "297a1fd92e7b570fc91630dc00e46ecc"
+    },
+    "detector": {
+      "path": "frame/detector",
+      "md5": "8f749fbbb46da88e1f56ccc77b2bf318"
+    },
+    "detector_clip": {
+      "path": "frame/detector_clip",
+      "md5": "7d07da340ea3fe5c46bf64ed2694d982"
+    },
+    "m1_m03b_overlay": {
+      "path": "frame/m1_m03b_overlay",
+      "md5": "c0f2795a606cd9d04e219afce0d617b2"
+    },
+    "m2_m03b_768": {
+      "alias_of": "m1_m03b_overlay",
+      "md5": "c0f2795a606cd9d04e219afce0d617b2"
+    },
+    "m3_v06_r32": {
+      "path": "frame/m3_v06_r32",
+      "md5": "a0a61cc6330a656410feb5497d8a3b2a"
+    }
+  }
+}

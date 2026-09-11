@@ -1,0 +1,50 @@
+video,fold,dataset,n_pos,n_neg,n_inst
+0001 - Laparoscopic Cholecystectomy.mp4,0,lapchole,257,113,462
+0004 - Heico - Prokto - 5.mp4,0,heico,60,238,75
+0006 - Heico - Prokto - 7.mp4,0,heico,43,203,63
+0007 - Laparoscopic Cholecystectomy.mp4,0,lapchole,27,25,94
+0008 - Heico - Prokto - 9.mp4,0,heico,64,240,81
+0009 - Laparoscopic Cholecystectomy.mp4,0,lapchole,624,42,2284
+0012 - Heico - Rektum - 3.mp4,0,heico,98,234,133
+0029 - Laparoscopic Cholecystectomy.mp4,0,lapchole,46,67,90
+0053 - Laparoscopic Cholecystectomy.mp4,0,lapchole,15,33,23
+0081 - Laparoscopic Cholecystectomy.mp4,0,lapchole,9,13,17
+0086 - Laparoscopic Cholecystectomy.mp4,0,lapchole,25,69,38
+0101 - Laparoscopic Cholecystectomy.mp4,0,lapchole,32,37,81
+0128 - Laparoscopic Cholecystectomy.mp4,0,lapchole,34,74,89
+0147 - Laparoscopic Cholecystectomy.mp4,0,lapchole,12,41,15
+0169 - Laparoscopic Cholecystectomy.mp4,0,lapchole,22,71,64
+0002 - Laparoscopic Cholecystectomy.mp4,1,lapchole,379,28,586
+0003 - Heico - Prokto - 4.mp4,1,heico,20,242,35
+0005 - Heico - Prokto - 6.mp4,1,heico,24,177,32
+0010 - Heico - Rektum - 1.mp4,1,heico,94,359,116
+0019 - Laparoscopic Cholecystectomy.mp4,1,lapchole,93,56,104
+0020 - Laparoscopic Cholecystectomy.mp4,1,lapchole,281,15,764
+0022 - Laparoscopic Cholecystectomy.mp4,1,lapchole,25,24,48
+0023 - Heico - Sigma - 4.mp4,1,heico,86,148,175
+0024 - Heico - Sigma - 5.mp4,1,heico,58,92,72
+0030 - Laparoscopic Cholecystectomy.mp4,1,lapchole,7,61,7
+0052 - Laparoscopic Cholecystectomy.mp4,1,lapchole,19,58,31
+0056 - Laparoscopic Cholecystectomy.mp4,1,lapchole,32,49,47
+0071 - Laparoscopic Cholecystectomy.mp4,1,lapchole,1,33,1
+0073 - Laparoscopic Cholecystectomy.mp4,1,lapchole,29,20,45
+0074 - Laparoscopic Cholecystectomy.mp4,1,lapchole,157,64,424
+0083 - Laparoscopic Cholecystectomy.mp4,1,lapchole,24,25,24
+0115 - Laparoscopic Cholecystectomy.mp4,1,lapchole,42,105,102
+0152 - Laparoscopic Cholecystectomy.mp4,1,lapchole,13,46,14
+0002 - Heico - Prokto - 3.mp4,2,heico,80,208,99
+0004 - Laparoscopic Cholecystectomy.mp4,2,lapchole,19,27,49
+0007 - Heico - Prokto - 8.mp4,2,heico,31,223,45
+0010 - Laparoscopic Cholecystectomy.mp4,2,lapchole,33,54,82
+0016 - Heico - Rektum - 7.mp4,2,heico,94,312,135
+0021 - Laparoscopic Cholecystectomy.mp4,2,lapchole,5,112,5
+0027 - Heico - Sigma - 8.mp4,2,heico,60,162,65
+0027 - Laparoscopic Cholecystectomy.mp4,2,lapchole,624,11,856
+0036 - Laparoscopic Cholecystectomy.mp4,2,lapchole,225,32,291
+0061 - Laparoscopic Cholecystectomy.mp4,2,lapchole,27,45,33
+0062 - Laparoscopic Cholecystectomy.mp4,2,lapchole,24,30,50
+0079 - Laparoscopic Cholecystectomy.mp4,2,lapchole,9,10,26
+0092 - Laparoscopic Cholecystectomy.mp4,2,lapchole,14,60,27
+0094 - Laparoscopic Cholecystectomy.mp4,2,lapchole,47,97,130
+0142 - Laparoscopic Cholecystectomy.mp4,2,lapchole,44,44,78
+0162 - Laparoscopic Cholecystectomy.mp4,2,lapchole,32,52,82

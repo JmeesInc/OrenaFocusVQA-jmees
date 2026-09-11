@@ -1,0 +1,36 @@
+video,fold,dataset,n_pos,n_neg,n_inst
+0007 - Heico - Prokto - 8.mp4,0,heico,31,223,45
+0010 - Laparoscopic Cholecystectomy.mp4,0,lapchole,21,54,69
+0012 - Heico - Rektum - 3.mp4,0,heico,96,234,131
+0019 - Laparoscopic Cholecystectomy.mp4,0,lapchole,51,56,62
+0027 - Laparoscopic Cholecystectomy.mp4,0,lapchole,241,11,458
+0036 - Laparoscopic Cholecystectomy.mp4,0,lapchole,65,32,121
+0061 - Laparoscopic Cholecystectomy.mp4,0,lapchole,27,45,33
+0071 - Laparoscopic Cholecystectomy.mp4,0,lapchole,1,33,1
+0081 - Laparoscopic Cholecystectomy.mp4,0,lapchole,6,9,10
+0083 - Laparoscopic Cholecystectomy.mp4,0,lapchole,22,25,22
+0092 - Laparoscopic Cholecystectomy.mp4,0,lapchole,14,60,27
+0128 - Laparoscopic Cholecystectomy.mp4,0,lapchole,34,74,89
+0001 - Laparoscopic Cholecystectomy.mp4,1,lapchole,117,113,187
+0002 - Heico - Prokto - 3.mp4,1,heico,79,208,98
+0002 - Laparoscopic Cholecystectomy.mp4,1,lapchole,219,28,348
+0003 - Heico - Prokto - 4.mp4,1,heico,20,242,35
+0006 - Heico - Prokto - 7.mp4,1,heico,43,203,63
+0009 - Laparoscopic Cholecystectomy.mp4,1,lapchole,25,42,88
+0052 - Laparoscopic Cholecystectomy.mp4,1,lapchole,19,58,31
+0073 - Laparoscopic Cholecystectomy.mp4,1,lapchole,29,20,45
+0115 - Laparoscopic Cholecystectomy.mp4,1,lapchole,42,105,102
+0147 - Laparoscopic Cholecystectomy.mp4,1,lapchole,12,41,15
+0169 - Laparoscopic Cholecystectomy.mp4,1,lapchole,22,71,64
+0004 - Heico - Prokto - 5.mp4,2,heico,60,238,75
+0004 - Laparoscopic Cholecystectomy.mp4,2,lapchole,19,27,49
+0005 - Heico - Prokto - 6.mp4,2,heico,24,177,32
+0007 - Laparoscopic Cholecystectomy.mp4,2,lapchole,27,25,94
+0020 - Laparoscopic Cholecystectomy.mp4,2,lapchole,227,15,707
+0024 - Heico - Sigma - 5.mp4,2,heico,56,92,66
+0029 - Laparoscopic Cholecystectomy.mp4,2,lapchole,45,67,89
+0030 - Laparoscopic Cholecystectomy.mp4,2,lapchole,7,61,7
+0053 - Laparoscopic Cholecystectomy.mp4,2,lapchole,15,33,23
+0062 - Laparoscopic Cholecystectomy.mp4,2,lapchole,23,30,47
+0074 - Laparoscopic Cholecystectomy.mp4,2,lapchole,86,64,194
+0101 - Laparoscopic Cholecystectomy.mp4,2,lapchole,32,37,81

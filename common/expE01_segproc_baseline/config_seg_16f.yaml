@@ -1,0 +1,68 @@
+experiment:
+  name: expE02_seg_9b_16f448_n8000
+  seed: 42
+
+data:
+  track: SEGMENT
+  fold: 0
+  qa_version: v004
+  n_frames: 16
+  frame_size: 448
+  extract: true        # キャッシュ済みなら何もしない
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  # 16フレーム@448px の実測入力は約 2,900 tokens（≒160 tok/frame）。
+  # answer が切り落とされると静かに学習が壊れるので余裕を持たせる。
+  # 学習開始時に check_seq_lengths() が実測値をログに出す。
+  max_seq_len: 4096
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  # vision + language 両方。★vision を外さないこと（FRAME で +0.34 を出した最大の梃子）
+  target_modules:
+    - qkv            # vision attn
+    - proj           # vision attn out
+    - linear_fc1     # vision mlp
+    - linear_fc2
+    - q_proj         # language 全注意
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv    # language 線形注意
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj      # language mlp
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 19000
+  min_reserve_mb: 15000
+  epochs: 2
+  lr: 1.0e-4          # 9B の実績値（大型モデルは 5e-5 に半減が必要だった）
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1   # ★複数フレームでは 1 固定（VideoCollator が bs>1 を拒否する）
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  train_limit: 8000
+  gradient_checkpointing: true
+  # peft の一律 fp32 アップキャストから embed/lm_head を除外する。
+  # LoRA では凍結され更新されないので fp32 にする意味が無く、数GB 浮く。
+  # 複数フレーム入力は活性化が大きいので、この余裕がそのままフレーム数の上限になる。
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

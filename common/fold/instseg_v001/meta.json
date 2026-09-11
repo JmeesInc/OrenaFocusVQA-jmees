@@ -1,0 +1,10 @@
+{
+  "source_dataset": "/mnt/data/data4/shared/miccai/Orena/instseg/prepared/s30_20260807_001",
+  "n_folds": 3,
+  "split": "group-by-video, LPT balanced on positive frame count",
+  "fold_positive_loads": [
+    78,
+    80,
+    70
+  ]
+}

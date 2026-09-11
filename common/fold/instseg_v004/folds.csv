@@ -1,0 +1,113 @@
+video,fold,dataset,qa_fold,n_pos,n_neg,n_inst
+0001 - Laparoscopic Cholecystectomy.mp4,1,lapchole,4,257,113,462
+0002 - Heico - Prokto - 3.mp4,1,heico,1,80,208,99
+0002 - Laparoscopic Cholecystectomy.mp4,1,lapchole,4,379,28,586
+0003 - Heico - Prokto - 4.mp4,0,heico,0,20,242,35
+0004 - Heico - Prokto - 5.mp4,1,heico,4,60,238,75
+0004 - Laparoscopic Cholecystectomy.mp4,1,lapchole,1,19,27,49
+0005 - Heico - Prokto - 6.mp4,1,heico,4,24,177,32
+0006 - Heico - Prokto - 7.mp4,1,heico,2,43,203,63
+0007 - Heico - Prokto - 8.mp4,1,heico,3,31,223,45
+0007 - Laparoscopic Cholecystectomy.mp4,0,lapchole,0,27,25,94
+0008 - Heico - Prokto - 9.mp4,1,heico,2,64,240,81
+0009 - Laparoscopic Cholecystectomy.mp4,1,lapchole,4,674,47,2472
+0010 - Heico - Rektum - 1.mp4,1,heico,4,94,359,116
+0010 - Laparoscopic Cholecystectomy.mp4,1,lapchole,2,33,54,82
+0012 - Heico - Rektum - 3.mp4,0,heico,0,98,234,133
+0016 - Heico - Rektum - 7.mp4,1,heico,3,94,312,135
+0019 - Laparoscopic Cholecystectomy.mp4,1,lapchole,4,93,56,104
+0020 - Laparoscopic Cholecystectomy.mp4,1,lapchole,4,281,15,764
+0021 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,5,112,5
+0022 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,25,24,48
+0023 - Heico - Sigma - 4.mp4,1,heico,1,86,148,175
+0024 - Heico - Sigma - 5.mp4,0,heico,0,58,92,72
+0027 - Heico - Sigma - 8.mp4,1,heico,3,60,162,65
+0027 - Laparoscopic Cholecystectomy.mp4,0,lapchole,0,624,11,856
+0029 - Laparoscopic Cholecystectomy.mp4,1,lapchole,4,46,67,90
+0030 - Laparoscopic Cholecystectomy.mp4,1,lapchole,2,7,61,7
+0035 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,66,38,111
+0036 - Laparoscopic Cholecystectomy.mp4,0,lapchole,0,225,32,291
+0038 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,56,45,142
+0052 - Laparoscopic Cholecystectomy.mp4,1,lapchole,3,19,58,31
+0053 - Laparoscopic Cholecystectomy.mp4,1,lapchole,4,15,33,23
+0056 - Laparoscopic Cholecystectomy.mp4,1,lapchole,1,32,49,47
+0061 - Laparoscopic Cholecystectomy.mp4,0,lapchole,0,27,45,33
+0062 - Laparoscopic Cholecystectomy.mp4,1,lapchole,2,24,30,50
+0064 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,106,78,332
+0071 - Laparoscopic Cholecystectomy.mp4,1,lapchole,1,40,40,124
+0073 - Laparoscopic Cholecystectomy.mp4,1,lapchole,2,29,20,45
+0074 - Laparoscopic Cholecystectomy.mp4,1,lapchole,1,157,64,424
+0079 - Laparoscopic Cholecystectomy.mp4,0,lapchole,0,9,10,26
+0081 - Laparoscopic Cholecystectomy.mp4,1,lapchole,2,9,13,17
+0083 - Laparoscopic Cholecystectomy.mp4,1,lapchole,3,24,25,24
+0086 - Laparoscopic Cholecystectomy.mp4,1,lapchole,2,25,69,38
+0091 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,32,49,56
+0092 - Laparoscopic Cholecystectomy.mp4,1,lapchole,2,14,60,27
+0094 - Laparoscopic Cholecystectomy.mp4,1,lapchole,3,57,88,159
+0101 - Laparoscopic Cholecystectomy.mp4,1,lapchole,4,32,37,81
+0104 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,49,35,164
+0109 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,8,39,13
+0112 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,31,68,57
+0115 - Laparoscopic Cholecystectomy.mp4,1,lapchole,2,42,105,102
+0116 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,9,30,14
+0117 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,19,34,48
+0118 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,34,40,90
+0124 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,38,23,106
+0126 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,33,29,65
+0128 - Laparoscopic Cholecystectomy.mp4,1,lapchole,3,34,74,89
+0131 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,37,17,111
+0132 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,24,39,79
+0139 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,54,17,475
+0140 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,24,31,37
+0141 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,19,63,56
+0142 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,49,43,94
+0147 - Laparoscopic Cholecystectomy.mp4,1,lapchole,1,12,41,15
+0148 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,36,48,113
+0150 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,24,19,70
+0152 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,13,46,14
+0155 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,14,53,34
+0156 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,41,53,117
+0157 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,68,156,119
+0159 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,9,68,18
+0162 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,32,52,82
+0166 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,72,133,183
+0169 - Laparoscopic Cholecystectomy.mp4,1,lapchole,1,22,71,64
+0170 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,48,55,89
+0174 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,11,24,27
+0177 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,28,22,62
+0179 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,29,58,43
+0185 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,46,105,72
+0186 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,32,56,51
+0187 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,27,27,49
+0189 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,34,111,67
+0200 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,28,32,66
+0201 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,24,68,34
+0202 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,34,65,83
+0204 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,23,62,46
+0205 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,17,33,33
+0206 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,16,23,50
+0209 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,28,31,79
+0212 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,19,30,36
+0213 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,28,45,30
+0215 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,12,47,29
+0216 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,18,67,26
+0217 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,9,78,13
+0219 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,16,16,34
+0220 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,11,34,15
+0221 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,27,28,54
+0222 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,49,115,110
+0223 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,16,22,25
+0224 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,8,88,12
+0225 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,5,65,6
+0226 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,25,55,55
+0227 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,70,52,218
+0228 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,13,47,34
+0230 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,31,108,41
+0234 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,12,33,20
+0236 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,47,28,85
+0238 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,24,22,40
+0240 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,17,59,45
+0241 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,38,68,82
+0243 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,34,32,89
+0246 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,26,37,51
+0248 - Laparoscopic Cholecystectomy.mp4,1,lapchole,,16,32,26

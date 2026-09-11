@@ -1,0 +1,97 @@
+# expQ00-C — **b2（expQ00B）に FOCUS 焼き付けを足す**（2026-09-11）
+#
+# ★背景: v017 の経路B は b1(Q02B)/b3(Q03B) が「A→B の2段」なのに対し、
+#   **b2(Q00B) だけ外部を混ぜたまま 1 段**で止まっている（expQ00 は Stage B を回していない）。
+#   3 本の構造を揃えるために、b2 から外部を外した焼き付けを 1 epoch 回す。
+#
+# ⚠️ **これは新しい未検証モデルになる**。v017 の経路B を作った根拠は
+#   「v015（= 1段の expQ00B そのもの）の agg_id が 338 で v011 の 324 に +14問 勝つ」という
+#   LB 実測なので、焼き付けた b2' はその測定値の裏付けを失う。
+#   採用するかは**焼き上がってから判断**する（現行 v017 の tar.gz は完成済みで保持）。
+#
+# 構成: FOCUS 20,000（train+val）+ 擬似 15,906 = 35,906 / 2,244 step / lr 5e-5 / r=16
+#       重畳は **r4**（b2 の学習・推論と揃える）
+#
+experiment:
+  name: expQ00C_q00b_bake_r4
+  seed: 42
+  out_root: workspace/expQ00_frame_alldata
+
+data:
+  track: FRAME
+  fold: 0
+  qa_version: v004
+  # ★★fold0 val 4,008 問も学習に入れる（FOCUS 15,992 → 20,000）。**CV は測れなくなる**
+  train_part: all
+  n_frames: 1
+  frame_size: 768
+  extract: true
+
+  overlay:
+    cache_root: workspace/expM00_frame_overlay/cache_r4
+    variant: r4   # ★b2 は r4 で学習・推論するので焼き付けも r4
+    arm_csv: workspace/expM00_frame_overlay/overlay_arm_v001.csv
+    t1: false
+    val: true
+    expect_dual: 11032  # ★cache_r4 / train+val 20,000 の実測値（r1 の 10,375 とは別）
+
+  pseudo:
+    parquets:
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_v2_packed.parquet
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_cutpaste_v1_packed.parquet
+    frames_root: workspace/expK00_pseudo_vqa/out/packed
+    size: 768
+    paraphrase_prob: 0.5
+    limit: null
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  max_seq_len: 4096
+
+lora:
+  init_from_adapter: workspace/expQ00_frame_alldata/results/expQ00B_frame_alldata_r16_r4_ddp4/fold0/adapter
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 0        # ★dl2 は専有で使う
+  min_reserve_mb: 0
+  epochs: 1
+  lr: 5.0e-5             # ★warm start の継続なので Stage A(1e-4) の半分から cosine で下げる
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 0        # ★held-out が無い。best 選択は無意味
+  eval_subset: 0
+  save_total_limit: 8
+  train_limit: null
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: false
+  dataloader_num_workers: 4

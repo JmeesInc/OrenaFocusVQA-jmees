@@ -1,0 +1,21 @@
+{
+  "source_dataset": "/mnt/data/data4/shared/miccai/Orena/instseg/prepared/s30dall_20260828",
+  "qa_folds_csv": "/data4/src/shunsuke/MICCAI2026/Orena/workspace/fold/v003/folds.csv",
+  "split": "VQA fold v003 の fold0 を instseg の val に固定（K-fold ではない）",
+  "val": {
+    "videos": 8,
+    "pos": 1088,
+    "neg": 691,
+    "inst": 1540,
+    "heico": 3,
+    "no_vqa": 0
+  },
+  "train": {
+    "videos": 104,
+    "pos": 5035,
+    "neg": 7077,
+    "inst": 11742,
+    "heico": 10,
+    "no_vqa": 68
+  }
+}

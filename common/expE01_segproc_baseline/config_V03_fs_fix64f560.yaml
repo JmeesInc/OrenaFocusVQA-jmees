@@ -1,0 +1,71 @@
+experiment:
+  name: expV03_fs_fix64f560
+  seed: 42
+
+data:
+  fold: 0
+  qa_version: v004
+  extract: true
+  # ★SEGMENT の入力構成を **サンプルごとにランダム化**する（`seg_aug: true`）。
+  #   狙い: 推論時にどの構成を使うかが未確定で、しかも「学習 16f@448 なのに推論 64f@560 が最良」
+  #   という乖離が起きている。どの構成でも強いモデルにする。
+  #   構成は `dataset_seg.SEG_AUG_CONFIGS`（96f@448 ×2 / 64f@560 ×2 / 刻み2s / 32f@768）。
+  #   ★2026-08-13: `time` 許容誤差がクリップ長依存と判明し、299s クリップ(20%)は 64f では
+  #     届かないので 96f 系の比重を上げてある。
+  # ★AUG の対照。**構成をランダム化せず、推論で最良だった 64f@560 に固定**して継続学習する。
+  #   これが無いと「ランダム化が効いた」のか「単に高フレーム数・高解像度で学習した」のかを
+  #   分離できない。expV01 との差分は **seg_aug の有無と SEGMENT の n_frames/size だけ**。
+  seg_aug: false
+  tracks:
+    - {track: FRAME,   n_frames: 1,  size: 448, limit: null}   # 15,992 問
+    - {track: SEGMENT, n_frames: 64, size: 560, limit: null}   # 15,994 問（固定）
+
+model:
+  id: Qwen/Qwen3.5-9B
+  # ★★2026-08-13 実測で **bf16 は 4bit より遅い**と判明したので 4bit に戻す。
+  #   A100 80GB / bf16 / AUG平均48枚 = 150 s/it
+  #   RTX6000Ada 48GB / 4bit / AUG平均50枚 = 133 s/it
+  #   ＝**枚数を減らしたのに 13% 遅い**。理由は dequantize のコストではなく
+  #   **重みのメモリ帯域**: 4bit は毎層 4.7GB、bf16 は 18.5GB を読む（4倍）。
+  #   A100 の帯域 2TB/s でも読む量が4倍なので相殺される。
+  #   おまけに bf16 は 67GB 使い、4アーム並列の余裕が無くなる。
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  # ★sm_80+ なら flash_attention_2 が自動選択される（貸しGPUはこれが前提）。
+  #   96枚@448 ≒ 12.7k token で SDPA だと O(L^2) のメモリを食い、dl1 では 128枚で OOM した。
+  attn_implementation: auto
+  max_seq_len: 16384   # ★96枚@448 の実測 12,705 token + 余裕
+
+lora:
+  # ★expE06g（F+S 全量、SEGMENT 0.6958 / FRAME 0.6073）から継続。
+  #   1ep で best=最終step=未収束だったので、続きを AUG 付きで回す。
+  init_from_adapter: workspace/expE01_segproc_baseline/results/expE06g_joint_frame_segment_FULL/fold0/adapter
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [qkv, proj, linear_fc1, linear_fc2, q_proj, k_proj, v_proj, o_proj,
+                   in_proj_qkv, in_proj_a, in_proj_b, in_proj_z, out_proj,
+                   gate_proj, up_proj, down_proj]
+
+train:
+  reserve_mb: 0        # 貸しGPUは専有なので先取り確保しない
+  epochs: 1
+  lr: 3.0e-5           # 継続学習なので下げる（ゼロからは 1e-4）
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  # ★DDP にするなら **有効バッチを 16 に保つため grad_accum を GPU 数で割る**こと
+  #   （4GPU なら 4）。ここは単一GPU 前提の 16。
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  train_limit: null
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 8

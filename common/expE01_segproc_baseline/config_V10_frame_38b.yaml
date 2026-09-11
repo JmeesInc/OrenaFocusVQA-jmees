@@ -1,0 +1,74 @@
+# expV10: Qwen3.8-27B で FRAME 特化 2ep（借り GPU 48GB 専有）
+#
+# ## 何を測るのか
+#   対照は **expE10（Qwen3.5-9B / 768px / 2ep / scratch / fold v003）= FRAME の現ベスト 0.6289**。
+#   差分は **モデルだけ**（と、大型に合わせた lr のみ）。
+#
+# ## 27B を今また試す理由（FRAME で4連敗している）
+#   expD05 / D09 / D18 / D29 で 9B に負けている。ただし**全て Qwen3.6 世代・fold v001**。
+#   Qwen3.8-27B（2026-08-14 公開）は Qwen3.6-27B と **param 数が完全一致
+#   （27,781,427,952）・config も 64層/hidden 5120/intermediate 17408/vocab 248,320/
+#   layer_types linear48+full16 まで同一**の、中身だけ学習し直したモデル。
+#   → 「サイズ由来の不利」は前と同じで、**変わったのは事前学習の中身だけ**。ここが今回の賭け。
+#   → 過去の 27B 実測（VRAM 23.7GB / dl1 で 66h31m）がそのまま使える。
+#
+# ## expE10 との差分は model.id と lr と eval 頻度だけ（他は1文字も変えない）
+#   解像度 768px・2ep・r16 scratch・grad_accum 16 は全て expE10 と同一。
+
+experiment:
+  name: expV10_frame_38b
+  seed: 42
+
+data:
+  track: FRAME
+  fold: 0
+  qa_version: v004     # = fold v003。expE10 と同一
+  n_frames: 1
+  frame_size: 768
+  extract: true        # ★frames_cache/768（280,014枚）が転送済みなら追加抽出は無い。
+                       #   ⚠️ 借り GPU に**動画は無い**ので、欠けていると抽出できずここで落ちる。
+                       #   preflight の枚数チェックで先に気づくこと。
+
+model:
+  id: Qwen/Qwen3.8-27B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  attn_implementation: auto   # sm_89（6000Ada/L40S）なら flash_attention_2 が自動選択
+  # 1フレーム@768px は実測 約600〜900 token。
+  max_seq_len: 4096
+
+lora:
+  # ★scratch。9B の adapter は形が違うので流用不可。
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [qkv, proj, linear_fc1, linear_fc2, q_proj, k_proj, v_proj, o_proj,
+                   in_proj_qkv, in_proj_a, in_proj_b, in_proj_z, out_proj,
+                   gate_proj, up_proj, down_proj]
+
+train:
+  reserve_mb: 0        # 借り GPU は専有なので先取り確保しない
+  epochs: 2            # ★expE10 と同じ 2ep
+  # ★大型は 5e-5（expD18 の実績。expD29 の 2.5e-5 は 0.6152 → 0.5912 と悪化）。
+  #   expE10 の 1e-4 は 9B の値なので**そのまま持ち込まない**。ここだけは対照とズレる。
+  lr: 5.0e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  # ★eval 300件は 27B では1回十数分。借り GPU は時間課金なので 100→200 step に落とす。
+  #   ⚠️ save_steps は eval_steps の整数倍にすること。
+  eval_steps: 200
+  save_steps: 200
+  eval_subset: 300
+  save_total_limit: 4
+  train_limit: null    # FRAME 全量 15,992（×2ep / grad_accum 16 = 1,999 step）
+  # ★27B では絶対に切らない（9B の FRAME では切れたが、27B は VRAM が逼迫している）
+  gradient_checkpointing: true
+  keep_embed_lowp: true   # ★必須。embed+lm_head 2.543B を fp32 に上げると +7.6GB
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

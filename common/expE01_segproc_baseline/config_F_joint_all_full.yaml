@@ -1,0 +1,90 @@
+experiment:
+  name: expE03f_joint_all_full
+  seed: 42
+
+data:
+  fold: 0
+  qa_version: v004
+  extract: true        # (videoID,時刻) キーのキャッシュに 205,100 枚あるので追加抽出はほぼ無い
+  # ★★使えるデータを全部使う（qa_v004 fold0 train の全量）。
+  #   C(FRAME 6,000 + SEGMENT 3,000) が両トラックで勝ったので、そのままスケールさせる。
+  #
+  #   実測の根拠:
+  #     - SEGMENT: joint(C) が FRAME-LoRA に +0.044***、zero-shot に +0.131***
+  #     - FRAME:   joint(C) が FRAME単独(E) に +0.0449*（heico）。SEGMENT を混ぜると FRAME も伸びる
+  #     - 能力の出どころ: temporal_grounding は **SEGMENT データからしか来ない**
+  #       （FRAME 16,000 で学習しても 0.19 止まり / SEGMENT 3,000 だけで 0.31）
+  #     - object_recognition は FRAME から来る（C vs A で +0.075***）
+  #   → 両方を最大量入れる。PROCEDURE も同じ理屈で入れる（長時間文脈の能力は他から来ない）。
+  #
+  #   ★コスト非対称（4090 実測）: FRAME 1枚 ~1.2 s/sample / SEGMENT・PROCEDURE 16枚 ~8 s/sample。
+  #     FRAME 16,000 を足しても +5h 程度で、支配的なのは SEGMENT/PROCEDURE の 16 フレーム。
+  #     見積り: 15,992*1.2 + 15,994*8 + 8,000*8 ≈ 211,000s ≈ **59h/ep**
+  #
+  #   ★PROCEDURE は 16 フレーム固定。**32 フレームは 4090 で backward OOM**
+  #     （実測 2026-08-06: 19.71GB 使用中に 4.45GB 要求、合計 24.2GB > 23.5GB。純粋な容量不足）。
+  tracks:
+    - {track: FRAME,     n_frames: 1,  size: 448, limit: null}   # 15,992 問
+    - {track: SEGMENT,   n_frames: 16, size: 448, limit: null}   # 15,994 問
+    # ★grid を **明示的に 1.0 で固定**している（2026-08-09）。この run は 5s キーフレーム格子の
+    #   導入前に開始しており、`grid` 既定値は PROCEDURE で 5.0 に変わった。省略すると
+    #   **resume したときだけ PROCEDURE の入力フレームが別物になる**。走行中の run の
+    #   再現性を優先して当時の挙動をピン留めする。新規 run は grid を外す（=5s 格子）こと。
+    - {track: PROCEDURE, n_frames: 16, size: 448, limit: null, grid: 1.0}   #  8,000 問
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  # 16フレーム@448px の実測入力は約 2,900 tokens。answer が切り落とされると静かに壊れるので余裕を持たせる。
+  max_seq_len: 4096
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  # vision + language 両方。★vision を外さないこと（FRAME で +0.34 を出した最大の梃子）
+  target_modules:
+    - qkv            # vision attn
+    - proj           # vision attn out
+    - linear_fc1     # vision mlp
+    - linear_fc2
+    - q_proj         # language 全注意
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv    # language 線形注意
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj      # language mlp
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 19000
+  min_reserve_mb: 15000
+  epochs: 1          # ★1ep で約59h。2ep は5日で締切運用に乗らない。
+                     #   同じ総サンプル数なら「少ないデータを2周」より「多いデータを1周」が有利という
+                     #   これまでの方針を踏襲する。
+  lr: 1.0e-4          # 9B の実績値
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1   # ★複数フレームでは 1 固定（VideoCollator が bs>1 を拒否する）
+  lr_scheduler: cosine
+  logging_steps: 10
+  # 全 39,986 サンプル / grad_accum 16 = 約 2,499 step。
+  # ★save_steps は eval_steps の倍数にすること（load_best_model_at_end が best を拾えなくなる）。
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  save_total_limit: 4
+  train_limit: null   # tracks 側で全量
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

@@ -1,0 +1,122 @@
+# expQ02 — ★本命: **v011 レシピ（LB 0.6260 / 4位）+ val 込み all-data**（2026-09-07）
+#
+# v011 = expM03B。LB バケットは obj_id 538 / agg_id 324 / obj_ood 262 / agg_ood 129。
+# 1位（0.6343）との差は **agg_id −18問 と obj_ood −12問**だけで、agg_ood は全参加者中トップ。
+# v015（all-data / r4 / SurgAtlas）は **agg_id を 324→338 と3位相当まで上げた**実績があるので、
+# 「v011 のレーン構成のまま val 4,008 問を足す」のが最も期待値の高い一手。
+#
+# ★v011 からの差分は **`train_part: all` の1点だけ**に保つ:
+#   - 重畳は **r1**（LB で obj_id 538 を出した側。r4 は 515 に落とす）
+#   - 外部は **SMB+MB のみ**（SurgAtlas は CV 中立・LB 証拠なしなので入れない）
+#   - rank は **16**（CV では r=64 が +0.028 勝つが LB では −0.054 負ける。CV を信用しない）
+# ⚠️ ただし `train_lora_ext.py` の **EOS 重み保護は無条件**なので、そこだけは v011 と異なる
+#   （外部 loss_weight<1 のバッチのみ経路が変わる。Stage B は全て重み1.0なので影響なし）。
+#
+# ★★CV は測れない（fold0 val を学習に入れる）。LB も終了済みなので**判定手段は無い**。
+#   健全性は「loss 曲線が v011 と同型」「コンテナ回帰テストで empty 0 / 多行 0」で見る。
+#
+# expM03-A — Round 1 Stage A: FOCUS全量 + 擬似v2 + instseg重畳(expM00設計) + 外部VQA混合 1ep
+#
+# 2段アニーリング（ユーザ設計 2026-09-01）:
+#   Stage A(このファイル) = 混合 1ep（外部は loss_weight 0.5 + 術式文50%ドロップ = 事前学習的）
+#   Stage B(config_M03B)  = Stage A の adapter から FOCUS+擬似のみ 1ep（低LR側で本タスク焼き付け）
+# ベース: expM00_frame_overlay/config_A_frame_overlay.yaml（重畳r1 + 擬似v2, 2ep）から
+#   epochs 2→1、data.external を追加した以外は不変。
+# ⚠️ overlay.variant はexpM00スクリーニングの暫定勝者 r1。**expM00側の最終決定に追随して更新**。
+
+experiment:
+  name: expQ02A_alldata_stageA
+  seed: 42
+  out_root: workspace/expQ02_v011_alldata
+
+data:
+  track: FRAME
+  fold: 0
+  qa_version: v004
+  # ★★fold0 val 4,008 問も学習に入れる（FOCUS 15,992 → 20,000）。**CV は測れなくなる**
+  train_part: all
+  n_frames: 1
+  frame_size: 768
+  extract: true
+
+  overlay:
+    cache_root: workspace/expM00_frame_overlay/cache
+    variant: r1
+    arm_csv: workspace/expM00_frame_overlay/overlay_arm_v001.csv
+    t1: false
+    val: true
+    expect_dual: 10375  # ★train+val 20,000 に対する実測値（train のみの 7,405 とは別）
+
+  pseudo:
+    parquets:
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_v2_packed.parquet
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_cutpaste_v1_packed.parquet
+    frames_root: workspace/expK00_pseudo_vqa/out/packed
+    size: 768
+    paraphrase_prob: 0.5
+    limit: null
+
+  # ★★外部 Surgical VQA（expM03 の新設レーン。train のみ・val へは入らない）
+  #   SurgMLLMBench v1 15,525（FRAME）+ MultiBypass v1 の FRAME 8,000 = 23,525
+  #   SEGMENT 8,000 は FRAME 学習には入れない（track_limits で明示的に 0）
+  external:
+    parquets:
+      - workspace/expM02_surgmllmbench/out/surgmllmbench_qa_v1.parquet
+      - workspace/expM01_multibypass_qa/out/multibypass_qa_v1.parquet
+    size: 768
+    loss_weight: 0.5        # FOCUS/擬似(1.0) より弱く =「事前学習的」
+    procedure_dropout: 0.5  # 質問先頭の術式文を50%で落とす（未知術式名への頑健化）
+    track_limits:
+      FRAME: null
+      SEGMENT: 0
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  max_seq_len: 4096
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 0        # ★dl2 は専有で使う
+  min_reserve_mb: 0
+  epochs: 1
+  lr: 1.0e-4
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 0        # ★held-out が無い。best 選択は無意味
+  eval_subset: 0
+  save_total_limit: 8
+  train_limit: null
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: false   # Stage A は通過点。最終 step の重みを B に渡す
+  dataloader_num_workers: 4

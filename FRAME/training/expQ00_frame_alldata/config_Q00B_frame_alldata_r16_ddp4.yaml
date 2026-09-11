@@ -1,0 +1,143 @@
+# expQ00-B（DDP 4×4090 版）— FRAME: **val 込み all-data** で OOD 混合 Stage 1（**rank 16**）
+#
+# expQ00-A（r=64）から **lora.r / lora.alpha の 2 行だけ**を変えたもの。
+# 2026-09-04 16:20 に A を 38% で打ち切って差し替えた（理由は lora 節のコメント）。
+#
+# 単体版 `config_Q00A_frame_alldata.yaml` との差分は **4 行だけ**:
+#   experiment.name / grad_accum 16→4 / ddp_find_unused_parameters / num_workers。
+#   学習内容（データ・重畳・lr・LoRA）は完全に同一。
+# 起動: bash workspace/expQ00_frame_alldata/train_ddp_q00.sh 4
+#
+# 位置づけ: expN03（CV 0.6780 = FRAME 単独ベスト）のレシピを土台に、
+#   ① fold0 val 4,008問を学習に入れる（train_part: all）
+#   ② 外部を **all**（SurgMLLMBench + MultiBypass + SurgAtlas）にする
+#   ③ 重畳は 1 epoch 目から **r4**（N02 は r1 だった）
+# にした 1 epoch。**これ単体で OOD 用のモデルになる**。
+# ID 用の焼き付け（Stage B = FOCUS+擬似のみ 1ep）を回すかは他実験の結果待ちで、
+#   このファイルは A のみを規定する（B は決まってから別 config で足す）。
+#
+# ★★CV は測れない。判定は LB のみ。健全性は
+#   「loss 曲線が expN03 と同型」＋「コンテナ回帰テストで empty 0 / 多行 0」で見る。
+#
+# ユーザ確定事項（2026-09-04）:
+#   - CONTROL arm（検出器が注釈を学習に使った 36 動画 = 6,095問）は **重畳 OFF のまま**
+#   - r4 のラベル表記（`Needle 1 .75`）は **現状のまま**（キャッシュ焼き直しをしない）
+
+experiment:
+  name: expQ00B_frame_alldata_r16_r4_ddp4
+  seed: 42
+  out_root: workspace/expQ00_frame_alldata
+
+data:
+  track: FRAME
+  fold: 0
+  qa_version: v004
+  # ★★fold0 val も学習に入れる（15,992 + 4,008 = 20,000）。**CV は測れなくなる**
+  train_part: all
+  n_frames: 1
+  frame_size: 768
+  extract: true
+
+  overlay:
+    cache_root: workspace/expM00_frame_overlay/cache_r4   # r4（クラス色+個体番号+conf）/ conf 0.25
+    variant: r4
+    arm_csv: workspace/expM00_frame_overlay/overlay_arm_v001.csv
+    t1: false
+    val: false            # ★eval を止めるので val 側の attach は走らない（明示）
+    # ★train+val 20,000問での実測値（2026-09-04, attach で確認）:
+    #     dual 11,032 / 空 2,873 / CONTROL arm 6,095 / 欠け 0
+    #   内訳: train 7,881 + val 3,151。**train のみの 7,881 とは別の数字**なので注意。
+    expect_dual: 11032
+
+  pseudo:
+    parquets:
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_v2_packed.parquet
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_cutpaste_v1_packed.parquet
+    frames_root: workspace/expK00_pseudo_vqa/out/packed
+    size: 768
+    paraphrase_prob: 0.5
+    limit: null
+
+  # ★★外部 Surgical VQA = **all**（40,170問）:
+  #     SurgMLLMBench 15,525（5サブソース）+ MultiBypass FRAME 8,000 + SurgAtlas 16,645
+  #   SEGMENT 分は FRAME 学習に入れない（track_limits で明示的に 0）
+  external:
+    parquets:
+      - workspace/expM02_surgmllmbench/out/surgmllmbench_qa_v1.parquet
+      - workspace/expM01_multibypass_qa/out/multibypass_qa_v1.parquet
+      - workspace/expM04_round2_surgatlas/out/surgatlas_qa_v1.parquet
+    size: 768
+    loss_weight: 0.5        # FOCUS/擬似(1.0) より弱く =「事前学習的」
+    procedure_dropout: 0.5  # 質問先頭の術式文を50%で落とす（未知術式名への頑健化）
+    track_limits:
+      FRAME: null
+      SEGMENT: 0
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  max_seq_len: 4096
+
+lora:
+  # ★★rank は **16**（ユーザ判断 2026-09-04、v014 の LB 結果を受けて r=64 から戻した）。
+  #   v014（= expN03, r=64 + r4）の LB 0.5722 は v011（= expM03B, r=16 + r1）の 0.6260 から
+  #   **−0.0538**。損失の 84% は OOD 2バケット（obj_ood −0.096 / agg_ood −0.085）で、
+  #   「容量 4 倍で in-dist を強く覚え外挿が弱る」仮説と整合する。
+  #   ★重畳 r4 は**維持**（ユーザ判断）。r4 と rank のどちらが OOD を落としたかは
+  #   expM04A（r=16 + r4）の CV/LB で別軸に切り分ける。
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  # ★貸し切りインスタンスでは先取り確保を切る（r=64 で Triton が OOM する。2026-09-02 実害）
+  reserve_mb: 0
+  min_reserve_mb: 0
+  epochs: 1
+  lr: 1.0e-4              # base からの 1 epoch 目なので N02 と同じ 1e-4
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  # ★★DDP 4GPU: per_device(1) × grad_accum(4) × GPU(4) = **有効バッチ 16**。
+  #   単体実行（accum 16）と 1 step のサンプル数・総 step 数・LR スケジュールが一致する。
+  #   16 のままだと有効バッチ 64 になって**別の実験**になる。
+  grad_accum: 4
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  # ★★train_part=all で held-out が無い → eval_loss は学習データ上の値。best 選択は無意味。
+  #   評価を止めて **最終 step を採用**する（[[load-best-picks-noise-argmin]]）。
+  eval_steps: 0
+  eval_subset: 0
+  # ★既定 2 だと中間 ckpt が消える（[[load-best-ships-the-32-percent-checkpoint]]）。
+  #   CV が無いぶん「途中の重み」を後から LB で試せる余地を残す。
+  save_total_limit: 8
+  train_limit: null
+  # ★DDP の警告「did not find any unused parameters」に従う。True だと
+  #   毎イテレーション autograd グラフを余分に走査するぶん遅い。
+  ddp_find_unused_parameters: false
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: false
+  # ★4ランク × 6 = 24 workers（28 vCPU の機体。残りは NCCL とメインへ）
+  dataloader_num_workers: 6

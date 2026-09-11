@@ -1,0 +1,32 @@
+# trained weights — published to Hugging Face, see tools/README.md
+*/container/resources/
+*.safetensors
+*.pth
+*.pt
+*.trt
+*.onnx
+
+# submission artifacts
+*.tar
+*.tar.gz
+*/container/test/
+*/container/output/
+
+# training outputs
+**/results/
+**/cache*/
+**/out/
+
+# data
+data/
+*.parquet
+*.mp4
+*.avi
+
+# local
+__pycache__/
+*.pyc
+.venv*/
+.hf/
+*.log
+.DS_Store

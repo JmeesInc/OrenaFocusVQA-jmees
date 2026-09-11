@@ -1,0 +1,91 @@
+experiment:
+  name: expE15_frame_visionrank_v003
+  seed: 42
+
+data:
+  track: FRAME
+  fold: 0
+  # ★★fold を v003（= qa_v004）に揃えるのがこの実験の目的。
+  #   expD 系（expD11 等）は fold **v001** で学習しており、v003 の val とは
+  #   **26本中21本が入れ替わっている**（両方にとって未学習な動画は 130本中5本、
+  #   FRAME 20,000問中 402問しか無い＝検出力ゼロ）。よって expD11 の 0.6464 と
+  #   expE03f の 0.5681 は**原理的に比較できない**。fold を揃えて決着させる。
+  qa_version: v004
+  n_frames: 1
+  # ★expD11 と同じ 768px。FRAME train の 768 フレームはキャッシュに無いので
+  #   起動時に自動抽出される（1問1枚 ≒ 16,000枚、16 worker で 15〜20分）。
+  frame_size: 768
+  extract: true
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16   # dl1(Turing) では train_lora_seg が自動で float16 に落とす
+  # 1フレーム@768px は実測 約600〜900 token（容量掃引: 8f@768 = 3,392 tok）。
+  max_seq_len: 4096
+
+lora:
+  # ★scratch。**expE10 との差分は rank 配分だけ**（768px / 2ep / lr 1e-4 は同一）。
+  #
+  # ## 動機: 一律 r=16 だと LoRA 容量が行列サイズ比例で language に偏る
+  #   実測: 9B の vision 比率 = 8.0M / 51.3M = **15.6%**（27B は 6.5%）。
+  #   vision tower は 9B/27B でほぼ同一（27層 / hidden 1152）で language だけ膨らむので、
+  #   これは**設計ではなく副作用**。
+  #   expD00 で「vision LoRA が FRAME の +0.34 の主因」と実証済みなので、
+  #   **総容量を据え置いたまま vision へ寄せる**のは根拠のある賭け。
+  #
+  # ## params-neutral の設計
+  #   language r=8 / vision r=64 →  vision 32.0M + language 21.6M = 53.7M
+  #   （一律 r=16 の 51.3M に対し +4.7%。vision 比率 15.6% → **59.7%**）
+  #   ★alpha は両側で alpha/r = 2.0 に固定。ここを揃えないと実効 lr が動いて
+  #     「rank の効果」と混ざる。
+  #
+  # ## 対になる実験
+  #   expD31（27B, language r8 / vision r128, vision 52.4%）が 8/13 08:08 に学習完了・評価中。
+  #   9B と 27B の両方で同じ向きが出れば強い知見になる。
+  r: 8
+  alpha: 16
+  rank_pattern:
+    'visual\..*': 64
+  alpha_pattern:
+    'visual\..*': 128
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 22000
+  min_reserve_mb: 16000
+  epochs: 2           # ★expD11 と同じ 2ep（joint 系の 1ep とは違う。expD11 の再現が目的）
+  lr: 1.0e-4          # ★expD11 と同じ。9B の実績値（大型モデルだけ 5e-5 に下げる話とは別）
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  train_limit: null   # FRAME 全量 15,992
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

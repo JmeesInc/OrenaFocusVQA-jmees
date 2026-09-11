@@ -1,0 +1,95 @@
+# expQ03 — **(a) r1 + SurgAtlas + all-data**（2026-09-10, ユーザ確定）
+#
+# ★用途: v017 router の「ID × aggregation 経路」の 3 本投票の 3 本目。
+#   既存の 2 本と**外部レーンだけ**が違うので、多様性がデータ側から出る:
+#     expQ02B  r1 / SurgAtlas無 / all-data   （= v016）
+#     expQ00B  r4 / SurgAtlas有 / all-data   （= v015, LB 0.6027）
+#     expQ03B  r1 / SurgAtlas有 / all-data   ← このファイル群
+# ★「同一 adapter を2本入れた投票は負ける」（0.6528 < 単独 0.6581）という実測があるので、
+#   メンバーは必ず別々に学習した重みにする。
+# ★重畳は **r1**（LB で obj_id 538 を出した側。r4 は 515 に落とす）。
+#
+experiment:
+  name: expQ03B_alldata_sa_stageB
+  seed: 42
+  out_root: workspace/expQ03_alldata_sa
+
+data:
+  track: FRAME
+  fold: 0
+  qa_version: v004
+  # ★★fold0 val 4,008 問も学習に入れる（FOCUS 15,992 → 20,000）
+  train_part: all
+  n_frames: 1
+  frame_size: 768
+  extract: true
+
+  overlay:
+    cache_root: workspace/expM00_frame_overlay/cache
+    variant: r1   # ★ここだけが expM04 との差分
+    arm_csv: workspace/expM00_frame_overlay/overlay_arm_v001.csv
+    t1: false
+    val: true
+    expect_dual: 10375  # ★train+val 20,000 に対する実測値（train のみの 7,405 とは別）
+
+  pseudo:
+    parquets:
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_v2_packed.parquet
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_cutpaste_v1_packed.parquet
+    frames_root: workspace/expK00_pseudo_vqa/out/packed
+    size: 768
+    paraphrase_prob: 0.5
+    limit: null
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  max_seq_len: 4096
+
+lora:
+  init_from_adapter: workspace/expQ03_alldata_sa/results/expQ03A_alldata_sa_stageA/fold0/adapter
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 22000
+  min_reserve_mb: 16000
+  epochs: 1
+  lr: 5.0e-5             # ★warm start の継続なので Stage A(1e-4) の半分から cosine で下げる
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 4        # ★DDP 4GPU: 1 x 4 x 4 = 有効バッチ 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 0        # ★held-out が無い。best 選択は無意味
+  eval_subset: 0
+  save_total_limit: 8
+  train_limit: null
+  ddp_find_unused_parameters: false
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: false
+  dataloader_num_workers: 4

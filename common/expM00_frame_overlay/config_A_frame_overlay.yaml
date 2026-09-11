@@ -1,0 +1,109 @@
+# expM00-A — instseg 重畳を**学習に入れた** FRAME 特化モデル（リーク対策込み）
+#
+# ★対照は expM00-B（`config_B_frame_ctrl.yaml`）= **このファイルから `data.overlay` を
+#   落としただけ**。差分は重畳の有無だけになる。
+# ★さらに expK01F（0.6399, 擬似 v1+cutpaste・重畳なし）とも比べる。
+#   B − K01F = 擬似 v1→v2 の差 / A − B = 重畳の差、と分解できる。
+#
+# データ（`build_arms.py` の集計）:
+#   実 FRAME train 15,992 = DUAL 9,897（検出器が学習していない 68 動画）
+#                          + CONTROL 6,095（検出器が学習した 36 動画 → 重畳を付けない）
+#   擬似 15,906 = pseudo_frame_v2 11,433 + cutpaste 4,473（**全部 det-train 動画由来 → 重畳なし**）
+#   合計 31,898 / 2ep / accum16 = 3,987 step
+#
+# ⚠️ 重畳画像は `render_cache.py` で**事前生成**したものを使う（学習と CV で同一画像）。
+#    未生成のフレームがあると `overlay_attach.attach` が SystemExit で止まる（黙って進まない）。
+
+experiment:
+  name: expM00A_frame_overlay
+  seed: 42
+
+data:
+  track: FRAME
+  fold: 0
+  qa_version: v004
+  n_frames: 1
+  frame_size: 768
+  extract: true
+
+  # ★★instseg 重畳（expM00）
+  overlay:
+    cache_root: workspace/expM00_frame_overlay/cache25   # ★conf 0.25（2026-09-01 ユーザ判断）
+    # ⚠️**スクリーニング（control / r0 / r1 / r2 / r3 / t1）の勝者を入れること**。
+    #   暫定で r1（クラス名は1番だけ + インスタンス番号）。
+    variant: r1
+    arm_csv: workspace/expM00_frame_overlay/overlay_arm_v001.csv
+    t1: false
+    val: true          # eval_loss 用の val にも同じ規則で付ける
+    # ★しきい値 **conf 0.25**（ユーザ判断 2026-09-01）。
+    #   スクリーニング（推論のみ）は 0.5 の方が僅かに上だったが（r1 +0.0061 vs +0.0045、
+    #   直接対決 −0.0016 p=0.71 で同点圏）、**重畳を学習していないモデルでは
+    #   「低信頼の印を割り引く」ことを学べない**ため、学習込みでは符号が変わりうる
+    #   （[[infer-time-hint-can-flip-when-trained]] の実例あり）。
+    #   ★レンダ後に実測: train 15,992 問 =
+    #     dual **7,881** / 検出0件ゲート 2,016 / CONTROL arm 6,095 / 欠け 0
+    #     （val 4,008 問 = dual 3,151 / ゲート 857）
+    #   参考: conf 0.5 なら dual 7,405 / ゲート 2,492
+    expect_dual: 7881
+
+  # ★擬似 VQA: v2（104 動画すべてを覆う。うち 5,934 問が公式 QA を持たない unlabeled 68 本由来）
+  #   + RARP cut-paste。**回答形式の構成比は実データとほぼ一致**（fo_class 41.9 / number 36.9 …）
+  pseudo:
+    parquets:
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_v2_packed.parquet
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_cutpaste_v1_packed.parquet
+    frames_root: workspace/expK00_pseudo_vqa/out/packed
+    size: 768
+    paraphrase_prob: 0.5
+    limit: null
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  # ★重畳ありは画像2枚 = 実測 約1,400〜2,000 token（1枚 600〜900）。4096 で足りる。
+  max_seq_len: 4096
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 22000
+  min_reserve_mb: 16000
+  epochs: 2
+  lr: 1.0e-4
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  train_limit: null
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

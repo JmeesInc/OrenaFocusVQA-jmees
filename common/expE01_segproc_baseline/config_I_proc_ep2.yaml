@@ -1,0 +1,74 @@
+experiment:
+  name: expE05c_proc_ep2
+  seed: 42
+
+data:
+  track: PROCEDURE
+  fold: 0
+  qa_version: v004
+  n_frames: 16
+  frame_size: 448
+  grid: 5.0            # ★expE05a と同一（本番クリップのキーフレーム間隔）
+  extract: true        # 5s 格子のフレームは expE05a で抽出済み → 実質何もしない
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16   # dl1(Turing) では自動で float16 に落ちる
+  max_seq_len: 4096
+
+lora:
+  # ★expE05a の続き。**`epochs: 2` にして同じ config を回すと resume されない**
+  #   （train_lora_seg.py:172 が `adapter/` の存在で完了判定し fold0_001 に採番するため、
+  #    checkpoint が無い新規ディレクトリで expE02c から 2ep 学習し直しになる）。
+  #   なので config_B と同じ `init_from_adapter` の継続学習として組む。
+  #
+  #   継続する根拠: expE05a の eval_loss は **最後まで単調減少**していた
+  #   （0.6010 → 0.5891 → 0.5898 → 0.5830 → **0.5807 = 最終step**）。
+  #   best が最終 step ＝ lr が 0 に落ちて止まっただけで、まだ underfit。
+  init_from_adapter: workspace/expE01_segproc_baseline/results/expE05a_proc_from_joint_kf5/fold0/adapter
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 22000
+  min_reserve_mb: 16000
+  epochs: 1
+  # ★lr は expE05a と同じ 3e-5。**変数を「ステップ数」だけに絞るため**に据え置く
+  #   （下げると「2エポック目が効いたのか lr を下げたのが効いたのか」が分離できない）。
+  #   実体は cosine の warm restart 2 本目にあたる。
+  lr: 3.0e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  train_limit: null   # PROCEDURE 全量 8,000
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

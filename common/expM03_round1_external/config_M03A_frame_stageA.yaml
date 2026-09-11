@@ -1,0 +1,101 @@
+# expM03-A — Round 1 Stage A: FOCUS全量 + 擬似v2 + instseg重畳(expM00設計) + 外部VQA混合 1ep
+#
+# 2段アニーリング（ユーザ設計 2026-09-01）:
+#   Stage A(このファイル) = 混合 1ep（外部は loss_weight 0.5 + 術式文50%ドロップ = 事前学習的）
+#   Stage B(config_M03B)  = Stage A の adapter から FOCUS+擬似のみ 1ep（低LR側で本タスク焼き付け）
+# ベース: expM00_frame_overlay/config_A_frame_overlay.yaml（重畳r1 + 擬似v2, 2ep）から
+#   epochs 2→1、data.external を追加した以外は不変。
+# ⚠️ overlay.variant はexpM00スクリーニングの暫定勝者 r1。**expM00側の最終決定に追随して更新**。
+
+experiment:
+  name: expM03A_frame_stageA
+  seed: 42
+
+data:
+  track: FRAME
+  fold: 0
+  qa_version: v004
+  n_frames: 1
+  frame_size: 768
+  extract: true
+
+  overlay:
+    cache_root: workspace/expM00_frame_overlay/cache
+    variant: r1
+    arm_csv: workspace/expM00_frame_overlay/overlay_arm_v001.csv
+    t1: false
+    val: true
+    expect_dual: 7405   # r1 用実測値。r3 採用時は 7881 に差し替え（expM00 config 参照）
+
+  pseudo:
+    parquets:
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_v2_packed.parquet
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_cutpaste_v1_packed.parquet
+    frames_root: workspace/expK00_pseudo_vqa/out/packed
+    size: 768
+    paraphrase_prob: 0.5
+    limit: null
+
+  # ★★外部 Surgical VQA（expM03 の新設レーン。train のみ・val へは入らない）
+  #   SurgMLLMBench v1 15,525（FRAME）+ MultiBypass v1 の FRAME 8,000 = 23,525
+  #   SEGMENT 8,000 は FRAME 学習には入れない（track_limits で明示的に 0）
+  external:
+    parquets:
+      - workspace/expM02_surgmllmbench/out/surgmllmbench_qa_v1.parquet
+      - workspace/expM01_multibypass_qa/out/multibypass_qa_v1.parquet
+    size: 768
+    loss_weight: 0.5        # FOCUS/擬似(1.0) より弱く =「事前学習的」
+    procedure_dropout: 0.5  # 質問先頭の術式文を50%で落とす（未知術式名への頑健化）
+    track_limits:
+      FRAME: null
+      SEGMENT: 0
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  max_seq_len: 4096
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 22000
+  min_reserve_mb: 16000
+  epochs: 1
+  lr: 1.0e-4
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  train_limit: null
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: false   # Stage A は通過点。最終 step の重みを B に渡す
+  dataloader_num_workers: 4

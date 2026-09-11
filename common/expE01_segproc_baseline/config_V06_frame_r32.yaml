@@ -1,0 +1,86 @@
+experiment:
+  name: expV06_frame_r32
+  seed: 42
+
+data:
+  track: FRAME
+  fold: 0
+  # ★★fold を v003（= qa_v004）に揃えるのがこの実験の目的。
+  #   expD 系（expD11 等）は fold **v001** で学習しており、v003 の val とは
+  #   **26本中21本が入れ替わっている**（両方にとって未学習な動画は 130本中5本、
+  #   FRAME 20,000問中 402問しか無い＝検出力ゼロ）。よって expD11 の 0.6464 と
+  #   expE03f の 0.5681 は**原理的に比較できない**。fold を揃えて決着させる。
+  qa_version: v004
+  n_frames: 1
+  # ★expD11 と同じ 768px。FRAME train の 768 フレームはキャッシュに無いので
+  #   起動時に自動抽出される（1問1枚 ≒ 16,000枚、16 worker で 15〜20分）。
+  frame_size: 768
+  extract: true
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16   # dl1(Turing) では train_lora_seg が自動で float16 に落とす
+  # 1フレーム@768px は実測 約600〜900 token（容量掃引: 8f@768 = 3,392 tok）。
+  max_seq_len: 4096
+
+lora:
+  # ★expE10（scratch, 768px, r16/α32, 0.6289）との差分は **rank だけ**。
+  #
+  # ## V04 との違い（軸が別）
+  #   V04 = rank の **再配分**（language r8 / vision r64、trainable 53.7M ≒ 据え置き）
+  #   V06 = rank の **総量増**（両方 r32、trainable 51.3M → **102.6M と倍増**）
+  #   → 両方走らせると「配分」と「総容量」のどちらが効くかを分離できる。
+  #
+  # ## 根拠
+  #   r=8 vs r=16 は n.s.（expD30: heico p=0.387）だったが、**上げる方向は未検証**。
+  #   expE10 は best=最終step=未収束なので、容量不足の可能性が残っている。
+  #   α/r = 2.0 を維持（実効 lr を動かさない）。
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 0        # 貸しGPUは専有
+  epochs: 2           # ★expD11 と同じ 2ep（joint 系の 1ep とは違う。expD11 の再現が目的）
+  lr: 1.0e-4          # ★expD11 と同じ。9B の実績値（大型モデルだけ 5e-5 に下げる話とは別）
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200   # eval_steps の整数倍である必要がある
+  # ★eval は 300件を毎回まわすので 5〜10分/回。100 step ごとだと総時間の約1割を食う。
+  #   best checkpoint 選択の粒度は 200 step でも足りる。
+  eval_steps: 200
+  eval_subset: 300
+  train_limit: null   # FRAME 全量 15,992
+  # ★★FRAME は 1枚入力で VRAM が 80GB 中 14GB しか要らない。
+  #   gradient_checkpointing は「活性化を保存せず forward をやり直す」ことで
+  #   メモリを節約する代わりに **計算が 30〜40% 増える**。
+  #   数値的には完全に等価なので、メモリが余っているなら**切れば無条件で速い**。
+  #   ⚠️SEGMENT/27B は VRAM が逼迫しているので true のまま。
+  gradient_checkpointing: false
+  keep_embed_lowp: true
+  load_best_model_at_end: true
+  dataloader_num_workers: 4

@@ -1,0 +1,101 @@
+# expM03-A(joint) — Round 1 Stage A: K04 joint（F+S 全量 + 擬似 format_mix）+ 外部VQA 1ep
+#
+# ベース: expK04_format_mix/config_K04_joint_formatmix.yaml（変更点は external 追加のみ）
+# ★track 比率の教訓（K01S: FRAME 擬似だけ足して 1:1→1:1.76 に崩れ −0.0303）:
+#   外部も比を保つ。external SEGMENT = MB 8,000 全量 / external FRAME = 8,000 に cap
+#   （SMB 15,525 + MB FRAME 8,000 = 23,525 からランダム 8,000。seed 固定）
+#   → F: 15,992+3,854+8,000 = 27,846 / S: 15,994+3,854+8,000 = 27,848（1:1 維持）
+# ★見積り(4090): +8,000×8s(S ext) +8,000×1.2s(F ext) ≈ K04 の 59h/ep → 79h/ep。
+#   **DDP 4×4090 で ~20h/ep** を想定（chain_v07_ddp.sh 系の起動）。
+# Stage B = config_M03B_joint_stageB.yaml（external を外して warm start 1ep）
+
+experiment:
+  name: expM03A_joint_stageA
+  seed: 42
+
+data:
+  fold: 0
+  tracks:
+    - {track: FRAME,     n_frames: 1,  size: 448, limit: null}   # 15,992 問
+    - {track: SEGMENT,   n_frames: 16, size: 448, limit: null}   # 15,994 問
+  pseudo:
+    parquets:
+      - workspace/expK00_pseudo_vqa/out/pseudo_segment_v1_packed.parquet
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_v1_packed.parquet
+      - workspace/expK00_pseudo_vqa/out/pseudo_frame_cutpaste_v1_packed.parquet
+    frames_root: workspace/expK00_pseudo_vqa/out/packed
+    size: 448
+    paraphrase_prob: 0.5
+    limit: null
+    format_mix:
+      FRAME:
+        fo_class: 0.46
+        number: 0.31
+        open_ended: 0.10
+        binary: 0.09
+        multiple_choice: 0.05
+    track_limits:
+      FRAME: 3854
+
+  # ★★外部 Surgical VQA（expM03）。loss_weight 0.5 + 術式文50%ドロップ（=事前学習的）
+  external:
+    parquets:
+      - workspace/expM02_surgmllmbench/out/surgmllmbench_qa_v1.parquet
+      - workspace/expM01_multibypass_qa/out/multibypass_qa_v1.parquet
+    size: 448
+    loss_weight: 0.5
+    procedure_dropout: 0.5
+    track_limits:
+      FRAME: 8000        # 23,525 からランダム cap（track 比 1:1 維持のため）
+      SEGMENT: null      # MB SEGMENT 8,000 全量
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  max_seq_len: 4096
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  reserve_mb: 19000
+  min_reserve_mb: 15000
+  epochs: 1
+  lr: 1.0e-4
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  grad_accum: 16
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  eval_subset: 300
+  save_total_limit: 4
+  train_limit: null
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: false   # Stage A は通過点
+  dataloader_num_workers: 4
