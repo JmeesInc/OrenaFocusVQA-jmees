@@ -30,3 +30,6 @@ __pycache__/
 .hf/
 *.log
 .DS_Store
+
+# regenerated from the official dataset — see common/fold/README.md
+common/fold/qa_*/qa_split.csv

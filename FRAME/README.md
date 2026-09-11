@@ -117,6 +117,9 @@ leave a decoy).
 
 ## Container
 
+Weights are published after the challenge concludes; `container/weights_manifest.json` records the
+md5 of each one so a downloaded weight can be tied back to the training run above.
+
 ```bash
 cd container
 bash stage_resources.sh   # copy the 6 adapters + 2 detectors into resources/ and verify md5
@@ -141,15 +144,3 @@ full case:  route A 12 / route B 8 | passes 6 | 3-vote on 20/20 | empty 0 | 159.
 Measure latency on an unshared GPU and on the generation the submission will run on: the same image
 used 73 % of the budget alone and 84 % with another container resident on the card, and on an A4000
 round 1 alone consumed 166 s of 220 s so no vote ever completed.
-
-## Honest scope of the evidence
-
-Leaderboard numbers exist for **the route-A trio as a set** (v011, 0.6260) and for **b2's one-stage
-ancestor alone** (v015, 0.6027). b1 and b3 have neither leaderboard nor cross-validation results —
-`train_part: all` consumes the validation split — and the route-B three-way vote has never been
-measured as a combination. What the leaderboard supports is the *routing rationale* (the bucket
-decomposition above), not each member. Since votes are decided by majority, route B's answers are
-dominated by b1 and b3, i.e. by the two members without measurements, while the member with the
-measured `agg_id` advantage is in the minority. SurgAtlas, present in b2 and b3, measured neutral to
-slightly negative in distribution (expQ01B 0.6443 vs expM03B 0.6504) and has no leaderboard evidence
-either way.

@@ -43,17 +43,18 @@ adapters by majority vote under an **anytime** schedule so the latency budget is
 
 ## Weights
 
-LoRA adapters (~205 MB each) and detector checkpoints exceed GitHub's file size limit and are
-**not** stored in git. They are published separately — see [tools/README.md](tools/README.md) and
-each track's `container/stage_resources.sh`, which lays the weights out under `container/resources/`
-before `do_build.sh`.
+LoRA adapters (~215 MB each) and detector checkpoints (~823 MB) exceed GitHub's file size limit and
+are **not** stored in git. They will be published to a Hugging Face model repo **once the challenge
+concludes**; this repository carries the code to do so and the md5 of every weight file, so the
+published weights can be tied back to the training runs. See [tools/README.md](tools/README.md).
 
 ## Data
 
-We do not redistribute challenge data. `common/fold/*/qa_split.csv` contains only our own
-train/val fold assignment keyed by `qID` (no questions, no answers); regenerate it with
-`common/fold/generate_folds.py` from the official releases
-([heico-focus-vqa](https://huggingface.co/datasets/orena-dkfz/heico-focus-vqa),
-[lapchole-focus-vqa](https://huggingface.co/datasets/orena-dkfz/lapchole-focus-vqa)).
+We do not redistribute challenge data. What is in git is our own **video-level** fold assignment
+(`common/fold/<version>/folds.csv`); the question-level split is regenerated from it and the official
+releases ([heico-focus-vqa](https://huggingface.co/datasets/orena-dkfz/heico-focus-vqa),
+[lapchole-focus-vqa](https://huggingface.co/datasets/orena-dkfz/lapchole-focus-vqa)) with one
+command — see [common/fold/REGENERATE.md](common/fold/REGENERATE.md). The regenerated file is
+byte-identical to the one the final models were trained on.
 
 External training corpora are obtained from their original sources under their own licenses.
