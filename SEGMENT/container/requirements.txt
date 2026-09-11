@@ -1,0 +1,15 @@
+# 公式ベースイメージに torch 2.5.1 + torchvision が同梱（CUDA 12.4）。追加分のみ記載。
+orena-focus>=0.3.4
+transformers>=5.14
+accelerate>=1.14
+peft>=0.19
+bitsandbytes>=0.49
+qwen-vl-utils>=0.0.14
+# ★Mask2Former は **推論だけでも** scipy を要求する
+#   (modeling_mask2former.Mask2FormerLoss.__init__ → requires_backends(self, ["scipy"]))。
+#   入れ忘れると detector が黙ってロード失敗し、**重畳なし(s0 相当)で走る**
+#   （2026-08-22 に v008 で実害。2026-09-03 に v013 でも同じ穴を踏んだ ＝
+#     検出器を持たない版から派生するときは必ずこの行も持ってくること）。
+scipy>=1.10
+numpy>=1.23.0
+pillow>=9.0

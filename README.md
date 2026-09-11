@@ -10,7 +10,7 @@ pointers to the trained weights.
 | Track | Input | Max latency | Status |
 |---|---|---|---|
 | [FRAME](FRAME/) | single frame | 5 s | **final** — bucket router + 3-model vote per route |
-| [SEGMENT](SEGMENT/) | ≤5 min clip | 15 s | final submission not yet fixed (see [SEGMENT/README.md](SEGMENT/README.md)) |
+| [SEGMENT](SEGMENT/) | ≤5 min clip | 15 s | **final** — group-routed input + two-model confidence selection |
 | [PROCEDURE](PROCEDURE/) | full video | 30 s | final submission not yet fixed (see [PROCEDURE/README.md](PROCEDURE/README.md)) |
 
 ## Layout

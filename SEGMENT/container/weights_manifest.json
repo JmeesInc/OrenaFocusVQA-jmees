@@ -1,0 +1,17 @@
+{
+  "repo": "JmeesInc/OrenaFocusVQA-jmees-weights",
+  "members": {
+    "adapter_n04": {
+      "path": "segment/adapter_n04",
+      "md5": "71f7d92a6df032607f3d4a01a1e6ebdd"
+    },
+    "adapter_r00": {
+      "path": "segment/adapter_r00",
+      "md5": "c88fde1d59a3716fd93271d2e6723005"
+    },
+    "adapter_r00c": {
+      "path": "segment/adapter_r00c",
+      "md5": "09a229b19b760ae3319ba7948f050a1a"
+    }
+  }
+}

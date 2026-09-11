@@ -1,0 +1,139 @@
+# expR00B — expR00（外部込み all-data）から **FOCUS のみ**で追加学習する Stage B。
+#
+# ★狙い: 「FOCUS fine-tune でスコアが戻るか」を **32枚学習の系** で確かめる。
+#   16枚の系では expN01 A→B のクリーン hold-out で決着済み（2026-09-05）:
+#     multiple_choice +0.0719(p<0.001) / number +0.0608 / aggregation +0.0430 /
+#     object +0.0176 だが **temporal −0.0755(p<0.001)**。SCORE 0.6783 → 0.6920。
+#     temporal だけ stage A に戻す合成で **SCORE 0.7071（+0.0288, p=0.0072）**。
+#
+# ★expR00C（提出用）: `train_part: all` で fold0 val も学習に入れる。CV は測れない（判定は無し・提出のみ）。
+#   expR00 は all-data なので fold0 val を暗記済みだが、Stage B が val を
+#   **追加で見ない**ので両者の暗記量が揃い、差分の比較が公平になる。
+#   しかも Stage B は暗記を忘れる方向 = **Stage B に不利側（保守的）**。
+#   （all-data で回すと Stage B だけ val をもう 1 epoch 暗記し、勝ったように見えてしまう）
+#
+# ★評価は同一 4,005 問（fold0 val）で 3 アームを揃える:
+#     expR00 + s3（既存・採点済） / expR00 + s0（新規） / expR00B + s0（新規）
+#   → s3 vs s0 で重畳の効果、expR00 vs expR00B で FOCUS-ft の効果が同じ土俵で出る。
+
+experiment:
+  name: expR00C_seg_focusft_alldata
+  seed: 42
+  # ★成果物を expR00 配下に出す（既定は trainer のある expM03 配下になってしまう）
+  out_root: workspace/expR00_seg_s3
+
+data:
+  train_part: all   # ★提出用 all-data（fold0 val 込み）。CV は測れない
+  fold: 0
+  qa_version: v004        # = fold v003
+  # ★機体には元動画が無い（フレームキャッシュだけ）ので false。
+  #   true だと欠けたフレームを ffmpeg で作ろうとして FileNotFoundError で落ちる。
+  extract: false
+  with_procedure: false   # ★推論時ヒントは学習に入れると符号が反転した実績（expI）
+
+  # ★SEGMENT に anchor（問題文中の hh:mm:ss を必ず含める）。SEGMENT の 17.1% が該当。
+  #   推論は常に --anchor なのに学習は expE06g/expN00/expN01 とも未指定だった。
+  # ★実測（2026-09-04 dry-run）: 実効フレーム mean = train 30.57 / val 30.67
+  #   （32 に満たないのは 1s 格子で短いクリップが 32 枚取れないため。**dropped 0**）
+  tracks:
+    - {track: FRAME,   n_frames: 1,  size: 448, limit: null}
+    - {track: SEGMENT, n_frames: 32, size: 448, limit: null, anchor: true}
+  # ★c2_env は書かない。combo2 を使わないので不要（持ち込むと新たなズレを作る）
+
+  # ★★instseg 重畳 s3（bbox のみ・クラス色・conf・**番号なし**）。in-place 差し替えなので
+  #   トークン数は増えない = latency/VRAM のコストがゼロ。
+  #   `two_way: true` で **s0/s3 を 1/2 ずつ**（3スタイル 1/3 だと重畳ありの学習量が薄まる）。
+  #   ⚠️CONTROL arm（検出器が注釈を学習した36動画）と検出0クリップは常に s0。
+  #     空の重畳は expG00 §39 で −0.0429 の実害があるため付けない。
+  #   キャッシュは cache_p00_448(s3 47,558枚) を種にして 32f+anchor の差分 30,770 枚を追加したもの。
+  overlay3:
+    cache_root: workspace/expR00_seg_s3/cache_r00_448
+    arm_csv: workspace/expM00_frame_overlay/overlay_arm_v001.csv
+    two_way: true
+    val: true    # ★提出用: val も学習に入れる（重畳キャッシュは val 分も焼き済み・dry-run 欠落0）
+    # ★smoke の attach3 実測で確定させる（attach3 は train_limit より前に全サンプルへ走る）
+    expect_drawn: null   # ★train のみで件数が変わる。smoke の attach3 実測で確認する
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  # ★expN04 が n=500 で実測した 32f@448 の系列長: p50 4756 / p95 5709 / p99 6039 / max 6158。
+  #   n=32 のサンプリングで決めると尾を外して「切り詰めで answer が全部落ちる」（2026-09-04 実害）。
+  # ★★RTX5090(sm_120) では flash-attn の PyPI 版が **import は通るが実行時にクラッシュ**する
+  #   （カーネルが sm_120 用に無い。別レーンが 2026-09-04 に実測）。
+  #   `attn_implementation: auto` は sm_80+ で flash_attention_2 を選び、trainer の
+  #   try/except は **ロード時例外しか拾わない**ので、走り出してから落ちる。
+  #   → **sdpa を明示**する。これで「flash-attn 無しでも 32GB に載るか」を正直に測れる。
+  attn_implementation: flash_attention_2
+  max_seq_len: 8192
+
+lora:
+  # ★expR00（外部込み all-data）から継続。md5 c88fde1d59a3716fd93271d2e6723005
+  init_from_adapter: workspace/expR00_seg_s3/results/expR00_seg_s3_r16_alldata_5090/fold0/adapter
+  # ★expR00 から継続（scratch ではない）。r/alpha は expR00 と同一に保つ。
+  # ★2026-09-04 ユーザ指示で r=64 → **r=16** に変更。alpha は repo の慣例どおり 2r=32
+  #   （SEGMENT ベストの expN00 も P00C StageC も r16/α32。α を 128 のまま r を下げると
+  #     スケール α/r が 2→8 になり実効 lr が 4 倍相当になってしまう）。
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  # ★**専有機体ではバラストを取らない**（reserve は共有GPUで枠を奪われないための機能）。
+  #   2026-09-04 実測: 42000 を取ったら VRAM 98.5% 張り付きで 33.96 s/it まで落ちた。
+  reserve_mb: 0
+  min_reserve_mb: 0
+  # ★DDP の警告に従う。True だと毎イテレーション autograd グラフを余分に走査する。
+  ddp_find_unused_parameters: false
+  # ★expR00(2026-09-04): 長さでグループ化した sampler（訪問順だけ変える）。
+  #   4x4090 実測で GPU util が 20〜30% の時間 0%（DDP ストラグラー: 系列長 p50 948 / max 6,197）。
+  #   連続 index を同程度の長さに揃えて 4 rank を同時に終わらせる。データ・有効バッチ・lr・step は同一。
+  group_by_length: true
+  epochs: 1
+  lr: 3.0e-5          # ★継続学習（scratch の 1e-4 ではない）。expN01B の Stage B と同じ流儀
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  # ★DDP 4GPU: 1(bs) x 4(accum) x 4(GPU) = **有効バッチ 16**（単体 grad_accum 16 と一致）。
+  #   16 のままだと有効バッチ 64 になり step 数も LR スケールもズレる（根拠 chain_v07_ddp.sh）。
+  # ★bs=2 は 48GB でも OOM（2026-09-04 実測）。系列長 p50 975 / max 5709 と 5.9倍ばらつき、
+  #   左パディングで長い方に揃うため（[[batch-size-blocked-by-length-spread]]）。
+  grad_accum: 4
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 200
+  # ★train のみなので held-out はあるが、**eval は回さない**（GPU 時間の節約）。
+  #   判定は学習後に run_infer + judge で fold0 val 4,005 問を採点して行う。
+  #   ⚠️load_best は使わない: expN01 は平坦なノイズの argmin（24%地点）を拾って
+  #   学習の 76% を捨てた（[[load-best-picks-noise-argmin]]）。**最終 step を採る**。
+  eval_steps: 0
+  eval_subset: 0
+  # ★既定 2 だと中間 ckpt が消える（[[load-best-ships-the-32-percent-checkpoint]]）
+  save_total_limit: 8
+  train_limit: null
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  load_best_model_at_end: false
+  dataloader_num_workers: 8
+  dataloader_prefetch_factor: 4
+  dataloader_persistent_workers: true
