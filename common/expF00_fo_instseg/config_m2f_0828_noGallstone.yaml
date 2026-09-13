@@ -1,0 +1,80 @@
+# expF38 — pseudo あり × **陰性を足して pos:neg を対照と一致させた**版（ユーザ提案）
+#
+# ★なぜ要るか: expF32 と expF33 の比較は **pos:neg 比が交絡していた**。
+#     expF32（pseudo なし）: pos 5,035 / neg 7,077 = **0.71 : 1**
+#     expF33（pseudo あり）: pos 33,821 / neg 14,154 = **2.39 : 1**（3.4 倍のズレ）
+#   SAM3 pseudo は**陽性フレームしか増やさない**ので、比が陽性側に振れる。
+#   その結果 expF33 は pos_detect 0.923（vs 0.864）と取りこぼしが減る一方、
+#   neg_clean 0.783（vs 0.906）と「無いものを出さない」性能を落としていた。
+#   → これは「pseudo が悪い」のか「陰性が薄まっただけ」なのか区別できていない。
+#
+# expF38 は **陰性を +33,398 枚足して比を 0.71:1 に戻す**（`add_dense_negatives.py
+# --repeat 2 --target-ratio 1.406`）。陰性はすでに陰性と確定した 30 秒ビンの内部を
+# 1 秒グリッドで埋めたもの（pseudo track が生きているフレームは除外済み）。
+# これで **pseudo の効果だけ**を expF32 と比較できる。
+#
+# ⚠️ 旧 dump では expF23(ps1sN, target 2.0=陰性過多) が neg_clean 0.971 まで上がる代わりに
+#    AP 0.3390（expF26 ps1s は 0.3513）と下がった。今回は**対照と同じ比**（1.406）に
+#    合わせる点が違う。0.5:1 でも 2.39:1 でもない**中間の未検証点**。
+
+experiment:
+  name: expF40_m2f_ps1sN_noGallstone_0828
+  seed: 42
+
+data:
+  root: /mnt/data/data4/shared/miccai/Orena/instseg/prepared/s30dall_ps1sN_f0_20260828
+  folds_csv: ../fold/instseg_v004/folds.csv
+  fold: 0
+  # ★Gallstone を教師から外す（2026-08-30 ユーザ判断）。
+  #   理由: 全構成で AP50 0.000〜0.014 と誰も当てられていない。VLM 側でプロンプトで拾う方針に切り替え。
+  #   ⚠️ 副作用 2 点:
+  #   1) macro AP50 が **7 クラス平均**になるので expF38 の 0.4644（8 クラス平均）とは比較不可。
+  #      同じ重みでも Gallstone を除くだけで (0.4644*8 - 0.0002)/7 = **0.5307** になる。
+  #      再学習の効果はこの 0.5307 と比べること。
+  #   2) Gallstone の注釈しか無い画像は **陰性**に回る（dataset.py の is_negative）。
+  #      lapchole 10 動画 / 956 inst が「背景」として教えられるので、
+  #      胆石を別クラスと誤検出する分が減るのが再学習の主な利得。
+  classes: ["sponge", "clip", "Specimen_Bag", "Silicon_Loop", "External_Drain", "Needle", "Specimen"]
+  height: 512
+  width: 896
+  drop_negatives: false
+  max_negative_ratio: null
+  num_workers: 8
+  base_grid_repeat: 2      # expF33 と同一。追加陰性(neg_dense)は複製されない
+
+model:
+  pretrained: /mnt/data/data4/shared/miccai/Orena/weights/cvs_tool
+  num_queries: 200
+  no_object_weight: 0.1
+  class_weight: 2.0
+  mask_weight: 5.0
+  dice_weight: 5.0
+
+optim:
+  # 33,821 + 47,552 = 81,373枚 / batch8 = 10,171 updates/epoch。
+  # expF32(21,196) / expF33(24,984) と同じ帯で比較したいので 3ep=30,513 まで回し、
+  # **エポック内評価の同一更新数どうし**で突き合わせる。
+  # ★expF33（同じ pseudo 込み・24,984 upd）が **最後まで単調上昇で頭打ちしなかった**ため、
+  #   最初から長く取る。6ep = 61,026 updates。
+  epochs: 6
+  batch_size: 4            # 貸し 4090(24GB)。実効バッチ 8 は accum で維持
+  accum_steps: 2
+  lr: 1.0e-4
+  backbone_lr_mult: 0.1
+  weight_decay: 0.05
+  warmup_ratio: 0.05
+  grad_clip: 1.0
+  amp_dtype: bf16
+
+eval:
+  every_n_epochs: 0.5
+  ap_conf: 0.01
+  score_threshold: 0.5
+  # ★2026-08-29 ユーザ指示で**報告は segm AP50**に統一。best_model の選択もそれに合わせる。
+  #   （claudeSummary の「報告値は segm AP@0.50 に統一。best_model 選択は 50:95 のまま＝要修正」を解消）
+  #   ⚠️ 既存 run（expF32-37）は 50:95 で best を選んでいるので、**保存された best_model が
+  #   AP50 の最良エポックとは限らない**（例: expF34 は AP50:95 best が ep8 / AP50 best は ep13）。
+  monitor: segm_AP50
+
+output:
+  results_root: results

@@ -1,5 +1,5 @@
 {
-  "repo": "JmeesInc/OrenaFocusVQA-jmees-weights",
+  "repo": "negichi/OrenaFocusVQA-jmees-weights",
   "members": {
     "adapter_n04": {
       "path": "segment/adapter_n04",
@@ -12,6 +12,14 @@
     "adapter_r00c": {
       "path": "segment/adapter_r00c",
       "md5": "09a229b19b760ae3319ba7948f050a1a"
+    },
+    "STANDIN_NOTE.txt": {
+      "path": "segment/STANDIN_NOTE.txt",
+      "md5": "9a56330f90b1b428e7907a5feaf59c9a"
+    },
+    "group_templates.json": {
+      "path": "segment/group_templates.json",
+      "md5": "f239f64bb7d3928113c73a01794a62e7"
     }
   }
 }

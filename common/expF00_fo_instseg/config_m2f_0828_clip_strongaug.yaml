@@ -1,0 +1,70 @@
+# expF39 — clip 専用モデルの回し直し（**高解像度 + 強い blur/affine**）
+#
+# ★expF35（clip 専用 512x896 / 既定 aug）の結果:
+#     clip AP **0.1039**（ep6 が best、以降 0.09〜0.10 で頭打ち）
+#     ただし **pos_detect 0.099** と極端に保守化。all-class+pseudo の clip 0.108 に負けた。
+#   → ユーザ指示で「augmentation 増強 + 高解像度」で条件を変えて再挑戦する。
+#
+# 変更点は 2 つだけ（expF35 との差分）:
+#   1. **解像度 512x896 → 768x1344**（面積 2.25 倍）。clip は原画 1280x720 上で数ピクセルなので
+#      縮小が効いている可能性。batch は 4→2、accum は 2→4 で **実効バッチ 8 は維持**
+#      （＝1 epoch あたりの optimizer 更新数は expF35 と同じ 1,514）
+#   2. **aug: strong**（`dataset.py: build_transforms`）
+#      - blur を「かなり強く」: MotionBlur / Defocus / GaussianBlur / ZoomBlur を
+#        `blur_limit` 21 まで振って 70% で適用（内視鏡の実劣化＝スコープの振れとピンボケ）
+#      - affine を強く: scale 0.6-1.6 / rotate ±30 / shear ±10 / translate ±15%（p=0.9）
+#      - 圧縮劣化(q40-90) と軽いノイズも追加
+#      - ★**cutmix/mixup は使わない**（ユーザ指示。インスタンス境界が壊れる）
+#
+# ⚠️ 次の打ち手の候補（今回は変えない。1回に2要因までに留める）:
+#    `max_negative_ratio` で陰性を絞る。clip は train 12,112枚中 3,064枚にしか写っておらず
+#    **75% が陰性**。[[rare-class-needs-positive-rate-not-volume]] の通り、
+#    希少クラスは「枚数」ではなく「陽性率」が律速で、1:3 に絞ると 7.9 倍になった前例がある。
+#    expF35 の pos_detect 0.099 はまさにその症状。
+
+experiment:
+  name: expF39_m2f_clip_hires_strongaug_0828
+  seed: 42
+
+data:
+  root: /mnt/data/data4/shared/miccai/Orena/instseg/prepared/s30dall_20260828
+  folds_csv: ../fold/instseg_v004/folds.csv
+  fold: 0
+  height: 768
+  width: 1344
+  drop_negatives: false
+  max_negative_ratio: null
+  # ★強 aug は 1 枚 77ms（既定 5.7ms の 13.5 倍。内訳 ZoomBlur 198 / Defocus 38 / MotionBlur 20 ms）。
+  #   ただし貸し機は **6 vCPU** しかないので oversubscribe させない。
+  #   5 worker × 1/0.077s = 65 img/s あり、768x1344 の GPU 側（〜8 img/s）には十分間に合う。
+  num_workers: 5
+  classes: ["clip"]
+  aug: strong
+
+model:
+  pretrained: /mnt/data/data4/shared/miccai/Orena/weights/cvs_tool
+  num_queries: 200
+  no_object_weight: 0.1
+  class_weight: 2.0
+  mask_weight: 5.0
+  dice_weight: 5.0
+
+optim:
+  epochs: 14
+  batch_size: 2
+  accum_steps: 4           # 実効バッチ 8（expF35 と同一）
+  lr: 1.0e-4
+  backbone_lr_mult: 0.1
+  weight_decay: 0.05
+  warmup_ratio: 0.05
+  grad_clip: 1.0
+  amp_dtype: bf16
+
+eval:
+  every_n_epochs: 1
+  ap_conf: 0.01
+  score_threshold: 0.5
+  monitor: segm_AP
+
+output:
+  results_root: results

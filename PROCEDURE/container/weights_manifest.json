@@ -1,0 +1,45 @@
+{
+  "repo": "negichi/OrenaFocusVQA-jmees-weights",
+  "members": {
+    "adapter": {
+      "path": "procedure/adapter",
+      "md5": "43999b8243d132a2ff4d90a167523656"
+    },
+    "adapter_video": {
+      "path": "procedure/adapter_video",
+      "md5": "f7faf42bd06b8de277b32ea8936aacc6"
+    },
+    "m2f": {
+      "path": "procedure/m2f",
+      "md5": "8f749fbbb46da88e1f56ccc77b2bf318"
+    },
+    "phase_cholec": {
+      "path": "procedure/phase_cholec",
+      "md5": "08d0179341715d9a2754a6d7979eef08"
+    },
+    "phase_heico": {
+      "path": "procedure/phase_heico",
+      "md5": "71edbdddc0e376209f4e78c2947a7e11"
+    },
+    "phase_lib": {
+      "path": "procedure/phase_lib",
+      "md5": "86e56d6301f3a7e15afe92bc4abed423"
+    },
+    "group_templates.json": {
+      "path": "procedure/group_templates.json",
+      "md5": "f239f64bb7d3928113c73a01794a62e7"
+    },
+    "m2f_classes.json": {
+      "path": "procedure/m2f_classes.json",
+      "md5": "65b299553abe82f07d51e42d448fe39a"
+    },
+    "m2f_sm89.trt": {
+      "path": "procedure/m2f_sm89.trt",
+      "md5": "ab4fe2d8b8032222030d51470fbc2933"
+    },
+    "time_count_prior.json": {
+      "path": "procedure/time_count_prior.json",
+      "md5": "e10063430f4c7cf291f44fdec464f277"
+    }
+  }
+}

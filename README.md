@@ -11,7 +11,7 @@ pointers to the trained weights.
 |---|---|---|---|
 | [FRAME](FRAME/) | single frame | 5 s | **final** — bucket router + 3-model vote per route |
 | [SEGMENT](SEGMENT/) | ≤5 min clip | 15 s | **final** — group-routed input + two-model confidence selection |
-| [PROCEDURE](PROCEDURE/) | full video | 30 s | final submission not yet fixed (see [PROCEDURE/README.md](PROCEDURE/README.md)) |
+| [PROCEDURE](PROCEDURE/) | full video | 30 s | **final** — retrieval-indexed frames + two-pass confidence selection |
 
 ## Layout
 
@@ -24,6 +24,8 @@ common/
   expM00_frame_overlay/      instance-segmentation overlay renderer (variants r0-r4)
   expM03_round1_external/    QLoRA trainer with external-VQA mixing (train_lora_ext.py)
   expK00_pseudo_vqa/         pseudo-VQA generation
+  expF00_fo_instseg/         Mask2Former foreign-object instance segmentation
+  expI00_phase_clf/          surgical phase index (ConvNeXtV2 + MS-TCN)
   fold/                      cross-validation fold assignments
 tools/                       weight publication helpers
 ```
@@ -44,9 +46,11 @@ adapters by majority vote under an **anytime** schedule so the latency budget is
 ## Weights
 
 LoRA adapters (~215 MB each) and detector checkpoints (~823 MB) exceed GitHub's file size limit and
-are **not** stored in git. They will be published to a Hugging Face model repo **once the challenge
-concludes**; this repository carries the code to do so and the md5 of every weight file, so the
-published weights can be tied back to the training runs. See [tools/README.md](tools/README.md).
+are **not** stored in git. They are published at
+**[negichi/OrenaFocusVQA-jmees-weights](https://huggingface.co/negichi/OrenaFocusVQA-jmees-weights)**,
+one folder per track. Each track's `container/weights_manifest.json` records the md5 of every file,
+so a downloaded weight can be tied back to the training run that produced it — the same md5 values
+`container/stage_resources.sh` asserts. See [tools/README.md](tools/README.md).
 
 ## Data
 

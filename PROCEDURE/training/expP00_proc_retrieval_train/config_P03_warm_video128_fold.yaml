@@ -1,0 +1,146 @@
+# expP03 — PROCEDURE: **expP02（CV 0.5934）のレシピのまま入力を動画 128 枚にする**
+#
+# ★★2026-09-09: 2x2 の最後の 1 マスを埋める実験。
+#     |            | 画像列 64 | 動画 128 |
+#     |------------|-----------|----------|
+#     | 壊れたレシピ(外部+重畳+scratch) | 0.4002 | 0.5861 |
+#     | clean レシピ(warm start のみ)   | **0.5934** | **← これ** |
+#   同じレシピ内での動画の効果は **全バケットで大幅プラス**（time +0.3028 / TG +0.2926 /
+#   fo_class +0.2812）だったが、それが「動画が強い」のか「画像列64で起きていた破綻の回避」
+#   なのか区別できていない。clean レシピで測って決着させる。
+# ★expP02 との差は **入力形式（画像列→動画）と枚数（64→128）の 2 点だけ**。
+#   他は 1 バイトも変えない（warm start / 外部なし / 重畳なし / lr 3e-5 / 2ep）。
+#
+# （以下は expP02 から引き継いだ説明）
+#
+# ★★2026-09-08: expP00C（base から scratch + 外部16,000 + 重畳 s3 + r 変更 を**同時に**入れた版）が
+#   対照に **−0.1384（0.5386 → 0.4002）で大敗**し、全バケットで負けた（TG は −0.3407）。
+#   4 つ同時に動かしたので敗因が特定できない。→ **当初計画どおり変数を 1 つに戻す**:
+#     expE03f から warm start し、**frame_select / anchor / 枚数だけ**推論側へ揃える。
+#     外部データなし・instseg 重畳なし・PROCEDURE 単独。
+#   対照 = `eval_expP00ctrl_E03f_skipanon` = **0.5386**（expE03f に同一の推論条件を当てた実測）。
+#   8,000 問 × 2ep = 1,000 step なので **8GPU で約 2 時間**と安い。
+#
+# ★これまでの非対称（2026-09-03 に確認）:
+#     学習 16枚・一様・anchorなし   vs   推論 64枚・combo2(c9w)・anchorあり
+#   枚数・選択・anchor の3つを同時に推論側へ揃える。
+# ★c2_env は **dataset_seg の import 前**に os.environ へ流し込まれる
+#   （train_lora_ext._preload_c2_env）。C2_* はモジュール定数なので main 内では手遅れ。
+# ★フレームは workspace/expP00_proc_retrieval_train/prewarm_grid5.py で
+#   5秒格子を全部焼いてある（train 93,359 枚 @448）。extract: true は no-op になるはず。
+
+experiment:
+  name: expP03_warm_video128_fold
+  seed: 42
+
+data:
+  track: PROCEDURE
+  fold: 0
+  qa_version: v004
+  # ★動画入力ではトークンが約半分（temporal_patch_size=2）なので 128 枚が
+  #   画像列 64 枚とほぼ同じ系列長に収まる（実測 9,280 tok vs 8,713 tok）
+  n_frames: 128
+  frame_size: 448
+  grid: 5.0            # 本番クリップのキーフレーム間隔。推論も同じ格子
+  # ★機体には元動画が無い（フレームキャッシュのみ）ので false。true だと ffmpeg で落ちる
+  extract: false
+  with_procedure: false   # ★推論時ヒントは学習に入れると符号が反転した実績がある（expI）
+
+  # ★★学習側フレーム検索（expP00 の本体）
+  frame_select: combo2
+  anchor: true
+
+  # ★★★動画入力（expP01 で実装・検証済み）
+  #   ⚠️`do_sample_frames=False` を渡さないと processor が fps=24 で勝手に間引く
+  #   ⚠️フレームは (i,i+1) で対にされ時刻は対の中点 → 昇順必須（load_frames が assert）
+  #   ★`VideoMetadata.frames_indices` で combo2 の非一様選択と絶対時刻を保つ
+  video_tracks: [PROCEDURE]
+  video_hhmmss: true
+
+  # ★combo2 の設定 = expI06 c9w_win8（CV 0.5522 の設定。run_sweep16.sh:16-18 と同一）
+  c2_env:
+    C2_INTERVAL: "1"
+    C2_BRIDGE: "0.30"
+    C2_NONTIME: "0.70"
+    C2_EDGE: "first"
+    C2_EDGE_WIN: "90"
+    C2_EDGE_THR: "0.70"
+    C2_EDGE_K: "5"
+    C2_EDGE_SHARE: "0.125"
+    C2_EDGE_LADDER: "0.30:3"
+    C2_AFTER: "1"
+    C2_MULTICLASS: "1"
+    C2_RULES: "lastseen_pair,longest_cooc,after_first_inserted,last_visible,applied_times,count_inserted,present_at_t,interval_long"
+    # ★対照(eval_expP00ctrl_E03f_skipanon)と推論条件を揃える
+    C2_SKIP_ANON: "1"
+
+model:
+  id: Qwen/Qwen3.5-9B
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_double_quant: true
+  compute_dtype: bfloat16
+  # ★RTX5090(sm_120) は Astral prebuilt の flash-attn。sdpa だと O(n^2) で載らない
+  attn_implementation: flash_attention_2
+  # ★64f@448 の実測入力は 8,966 tokens（eval_expI06_c9w_win8/meta.json）。
+  #   4096 のままだと **末尾（＝答え）が黙って切り落とされる**（collator は out[:, :max_seq_len]）。
+  #   全 label が消えたときしか例外にならないので、静かに学習が壊れる。
+  #   val 100 問の実測でも max 11,456 tok だったため 16384 まで余裕を取る。
+  max_seq_len: 16384
+
+lora:
+  # ★warm start = 現行 PROCEDURE モデル（joint 全量）。ここから入力分布だけを移す。
+  init_from_adapter: workspace/expE01_segproc_baseline/results/expE03f_joint_all_full/fold0/adapter
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - qkv
+    - proj
+    - linear_fc1
+    - linear_fc2
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - in_proj_qkv
+    - in_proj_a
+    - in_proj_b
+    - in_proj_z
+    - out_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+train:
+  # ★専有機体ではバラストを取らない（共有GPUで枠を奪われないための機能）。
+  #   2026-09-04 実測: 42000 を取ったらアロケータ逼迫で 33.96 s/it まで落ちた。
+  reserve_mb: 0
+  min_reserve_mb: 0
+  ddp_find_unused_parameters: false
+  group_by_length: true
+  epochs: 2
+  lr: 3.0e-5          # 継続学習なので下げる
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  # ★8GPU DDP: 1 × 2 × 8 = 有効バッチ 16（単体 16 と一致。chain が GPU 数から上書きする）
+  grad_accum: 2
+  per_device_batch_size: 1
+  lr_scheduler: cosine
+  logging_steps: 10
+  save_steps: 100
+  # ★held-out はあるが eval_loss で best を選ばない（[[load-best-picks-noise-argmin]]）。
+  #   時間を推論に回すため評価は行わない。判定は val 2000 問の SCORE。
+  eval_steps: 0
+  eval_subset: 0
+  save_total_limit: 8
+  train_limit: null   # PROCEDURE 全量 8,000
+  gradient_checkpointing: true
+  keep_embed_lowp: true
+  # ★false にする。expN01 で eval_loss が平坦（0.279〜0.306 のノイズ）だったため
+  #   load_best_model_at_end が **24% 地点の argmin** を配布 adapter にして残り 76% を捨てた。
+  #   最終 ckpt を回収して両方測る。
+  load_best_model_at_end: false
+  dataloader_num_workers: 16
+  dataloader_prefetch_factor: 4
+  dataloader_persistent_workers: true

@@ -1,0 +1,42 @@
+# HeiCo（大腸: Proctocolectomy / Rectal Resection / Sigmoid Resection）の工程分類器。
+# phase は整数 ID 0-13 の 14 クラス（名称表はデータ内に存在しない）+ `other` の 15 クラス出力。
+# 補助タスク = 器具インスタンスセグメンテーション（ROBUST-MIS 層）。
+
+experiment:
+  name: expI00a_heico_convnextv2t_sn   # パラメータを変えたら必ず名前も変える
+  seed: 42
+
+data:
+  dataset: heico
+  img_size: 224
+  # 相手データセット(cholec80)を `other` 負例として train にだけ足す比率。
+  # router と未知術式フォールバックの判定をこの 1 クラスで賄う。
+  other_ratio: 0.10
+
+cv:
+  # ★heico 30 本は PROCEDURE CV の val 動画そのもの。fold v003 の fold0-val 6 本を
+  #   学習から完全に外す。これを崩すと下流 expH01 の A/B が信用できなくなる。
+  fold_version: v003
+  fold: 0
+
+model:
+  backbone: convnextv2_tiny
+  pretrained: true
+  # 手術動画 4.7M フレームの SSL 重み。timm の checkpoint_filter_fn で 198/198 読込を expC00 で確認済み
+  pretrained_ckpt: data/weights/surgenet/SurgeNet_convnextv2.pth
+  drop_path: 0.1
+
+loss:
+  lambda_tool: 0.0      # heico に tool presence ラベルは無い
+  lambda_seg: 0.3       # ★補助タスク。0.0 との A/B が本実験の検証項目
+  seg_batch_div: 4      # seg のバッチサイズ = batch_size / 4
+  class_weight: none    # 文献比較のため accuracy を歪めない（inv_sqrt も選べる）
+
+train:
+  epochs: 10
+  batch_size: 128
+  lr: 3.0e-4
+  weight_decay: 0.05
+  warmup_epochs: 1.0
+  grad_clip: 1.0
+  num_workers: 12

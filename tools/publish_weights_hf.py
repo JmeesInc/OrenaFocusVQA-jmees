@@ -54,8 +54,9 @@ def main() -> int:
         print(f"ERROR: {res} does not exist. Run container/stage_resources.sh first.", file=sys.stderr)
         return 1
     members = sorted(p for p in res.iterdir() if p.is_dir())
-    if not members:
-        print(f"ERROR: no member directories under {res}", file=sys.stderr)
+    loose = sorted(p for p in res.iterdir() if p.is_file())
+    if not members and not loose:
+        print(f"ERROR: nothing under {res}", file=sys.stderr)
         return 1
 
     seen: dict[str, str] = {}
@@ -73,6 +74,12 @@ def main() -> int:
         size = sum(p.stat().st_size for p in m.rglob("*") if p.is_file())
         print(f"  + {m.name:20s} {size / 2**20:7.0f} MiB  md5 {fp}")
 
+    for f in loose:
+        fp = md5(f)
+        upload.append((f, f"{args.track.lower()}/{f.name}"))
+        manifest[f.name] = {"path": f"{args.track.lower()}/{f.name}", "md5": fp}
+        print(f"  + {f.name:20s} {f.stat().st_size / 2**20:7.0f} MiB  md5 {fp}")
+
     (ROOT / args.track / "container" / "weights_manifest.json").write_text(
         json.dumps({"repo": args.repo, "members": manifest}, indent=2) + "\n"
     )
@@ -86,7 +93,12 @@ def main() -> int:
     api.create_repo(args.repo, repo_type="model", private=args.private, exist_ok=True)
     for src, dest in upload:
         print(f"uploading {src.name} -> {dest}")
-        api.upload_folder(repo_id=args.repo, repo_type="model", folder_path=str(src), path_in_repo=dest)
+        if src.is_dir():
+            api.upload_folder(repo_id=args.repo, repo_type="model",
+                              folder_path=str(src), path_in_repo=dest)
+        else:
+            api.upload_file(repo_id=args.repo, repo_type="model",
+                            path_or_fileobj=str(src), path_in_repo=dest)
     api.upload_file(
         repo_id=args.repo, repo_type="model",
         path_or_fileobj=str(ROOT / args.track / "container" / "weights_manifest.json"),

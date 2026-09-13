@@ -1,0 +1,39 @@
+# Cholec80（腹腔鏡下胆嚢摘出術）の工程分類器。
+# phase 7 クラス + `other` の 8 クラス出力。補助タスク = tool presence 7 クラス（1 fps）。
+# LapChole-FOCUS（170 本）の索引に使う。Cholec80 とは別データセットなので CV 汚染は無い。
+
+experiment:
+  name: expI00b_cholec_convnextv2t_sn
+  seed: 42
+
+data:
+  dataset: cholec
+  img_size: 224
+  other_ratio: 0.10
+
+cv:
+  # cholec80 は公式 split（video01-40 = 開発 / video41-80 = 評価）。
+  # dataset.py の cholec_split() が返す固定分割を使うので fold は形式上の値。
+  fold_version: v003
+  fold: 0
+
+model:
+  backbone: convnextv2_tiny
+  pretrained: true
+  pretrained_ckpt: data/weights/surgenet/SurgeNet_convnextv2.pth
+  drop_path: 0.1
+
+loss:
+  lambda_tool: 0.3      # ★補助タスク。0.0 との A/B が本実験の検証項目
+  lambda_seg: 0.0       # cholec80 に器具マスクは無い
+  seg_batch_div: 4
+  class_weight: none
+
+train:
+  epochs: 10
+  batch_size: 128
+  lr: 3.0e-4
+  weight_decay: 0.05
+  warmup_epochs: 1.0
+  grad_clip: 1.0
+  num_workers: 12

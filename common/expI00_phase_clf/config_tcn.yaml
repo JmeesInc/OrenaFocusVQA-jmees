@@ -1,0 +1,15 @@
+# stage-2 MS-TCN（TeCNO 方式）。stage-1 の frozen 特徴を入力に取る。
+# 本番の粗走査 stride ごとに別の重みを学習する（retrieval.plan_scan が返す値）。
+
+seed: 42
+
+# 5s = 中央値の動画 / 10s・20s = 長尺で走査枚数を N_SCAN_MAX に抑えたとき
+strides: [5, 10, 20]
+
+n_stages: 4
+n_layers: 10
+channels: 64
+dropout: 0.5
+lambda_smooth: 0.15
+lr: 5.0e-4
+epochs: 40
